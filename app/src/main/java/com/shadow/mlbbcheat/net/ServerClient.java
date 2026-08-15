@@ -40,7 +40,13 @@ public final class ServerClient {
     private static final String KEY_BANNED = "banned";
     private static final String KEY_KILL = "kill_switch";
 
-    private static final String BASE_URL = "https://api.shadowcheat.example/v1";
+    /**
+     * Control server base URL.
+     * Local testing: phone and PC on the same Wi-Fi, run `node server/server.js`
+     * on the PC, then use `http://<PC-LAN-IP>:8080`. Plain HTTP is fine for LAN;
+     * use HTTPS (reverse proxy) if you ever expose it publicly.
+     */
+    private static final String BASE_URL = "http://192.168.1.100:8080";
     private static final int TIMEOUT_MS = 8000;
 
     private final Context context;

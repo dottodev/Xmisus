@@ -26,16 +26,27 @@ Zero-config MLBB cheat app for Android (runs alongside MLBB inside Parallel Spac
 4. Enable the accessibility service in system settings.
 5. Open MLBB inside Parallel Space, then start GameGuardian and run the script.
 6. The floating widget toggles features.
-7. Redeem a key in the app to unlock premium (requires the control server).
+7. Redeem a key in the app to unlock premium.
 
-## Control Server
-`server/server.js` — zero-dependency Node.js control server:
-- `POST /validate` — validates user keys (tier + expiry, one device per key)
-- `POST /heartbeat` — kill switch + live offset DB delivery
-- Encrypted request/reply envelope (AES-256-GCM + HMAC, device-derived keys)
+## Control server + key shop (`server/`)
+Zero-dependency Node.js (≥22.5) app with a SQLite database. Run on your PC:
 
-Run: `node server/server.js` (edit `ServerClient.BASE_URL` in the app to point at it).
-Keys live in `server/keys.json`; flip `server/kill.json` to `{"kill":true}` to kill all installs.
+```
+node server/server.js
+```
+
+- **Admin site**: http://localhost:8080/admin.html — login with the password
+  printed on start (set `ADMIN_PASSWORD` env to choose your own).
+- **Create keys**: pick tier (free/premium), duration (minutes/hours/days/
+  months/permanent), and how many to generate. One key = one device.
+- **Manage**: list/revoke/delete keys, kill switch (disables every install),
+  device list, live offset-DB editor (served to app heartbeats).
+- **DB**: `server/data.db` (SQLite, auto-created). Back it up by copying the file.
+- **Test**: `node server/test.js` (e2e: create key → validate → heartbeat → kill).
+
+App protocol is encrypted end-to-end (AES-256-GCM + HMAC, device-derived keys).
+The app's server URL lives in `ServerClient.BASE_URL` — point it at your PC's
+LAN IP (`http://<PC-IP>:8080`) and keep the phone on the same Wi-Fi.
 
 ## Anti-Detection
 7 layers: hardware spoofing, kernel hiding, MLBB-specific bypass hooks,
@@ -44,6 +55,6 @@ behavioral mimicry, anti-analysis, server-side validation, self-protection.
 ## Status
 - v1.0.0 — Phase 1: core cheats + anti-detection + overlay + accessibility.
 - v1.1.0 — Phase 2: AdMob (banner + rewarded), key system, premium tiers,
-  control server (key validation / kill switch / remote offsets).
-- Next: real MLBB memory offsets (currently placeholders), AdMob real ad
-  unit IDs, hosted control server.
+  control server (key validation / kill switch / remote offsets) + admin site
+  + SQLite key management.
+- Next: real MLBB memory offsets (currently placeholders), real ad unit IDs.

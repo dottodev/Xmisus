@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MLBB Cheat — Admin</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #161b22; --border: #2a3038;
+    --text: #e6edf3; --dim: #8b949e; --accent: #3fb950; --danger: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 system-ui, sans-serif;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 20px; margin: 0 0 16px; }
+  h2 { font-size: 15px; margin: 24px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; min-width: 110px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { color: var(--dim); font-size: 12px; }
+  input, select, textarea, button {
+    background: #0d1117; color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; font: inherit;
+  }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: #0e1116; font-weight: 600; }
+  button.danger { background: var(--danger); color: #fff; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { color: var(--dim); font-weight: 500; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+  .tag.premium { background: #1f6feb33; color: #58a6ff; }
+  .tag.free { background: #3fb95022; color: #3fb950; }
+  .tag.used { background: #d2992233; color: #d29922; }
+  .tag.expired { background: #f8514933; color: #f85149; }
+  .tag.revoked { background: #f8514933; color: #f85149; }
+  .tag.ok { background: #3fb95022; color: #3fb950; }
+  .tag.bad { background: #f8514933; color: #f85149; }
+  .mono { font-family: ui-monospace, monospace; font-size: 12px; }
+  .muted { color: var(--dim); font-size: 12px; }
+  .hidden { display: none; }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 18px; display: none; }
+  textarea { width: 100%; min-height: 220px; font-family: ui-monospace, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>MLBB Cheat — Admin</h1>
+
+  <div id="login" class="card">
+    <div class="row">
+      <input type="password" id="pw" placeholder="admin password">
+      <button class="primary" onclick="login()">Login</button>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+
+    <div class="stats" id="stats"></div>
+
+    <h2>Create keys</h2>
+    <div class="card">
+      <div class="row">
+        <select id="tier">
+          <option value="premium">Premium</option>
+          <option value="free">Free</option>
+        </select>
+        <input type="number" id="amount" value="1" min="1" style="width:90px" placeholder="1">
+        <select id="unit">
+          <option value="perm">Permanent</option>
+          <option value="d">Days</option>
+          <option value="mo">Months</option>
+          <option value="h">Hours</option>
+          <option value="m">Minutes</option>
+        </select>
+        <span class="muted">×</span>
+        <input type="number" id="count" value="1" min="1" max="50" style="width:80px" title="how many keys">
+        <span class="muted">keys</span>
+        <button class="primary" onclick="createKeys()">Generate</button>
+      </div>
+      <div class="muted" id="genHelp"></div>
+    </div>
+
+    <h2>Keys</h2>
+    <div class="card">
+      <table id="keysTable">
+        <thead><tr>
+          <th>Key</th><th>Tier</th><th>Expiry</th><th>Status</th><th>Used by</th><th>Actions</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2>Kill switch</h2>
+    <div class="card">
+      <div class="row">
+        <button id="killBtn" class="danger" onclick="toggleKill()">Loading…</button>
+        <span class="muted">When ON, every install that heartbeats is disabled.</span>
+      </div>
+    </div>
+
+    <h2>Devices</h2>
+    <div class="card">
+      <table id="devicesTable">
+        <thead><tr><th>Device</th><th>Version</th><th>MLBB</th><th>Tier</th><th>Last seen</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2>Remote offset DB (served to every app heartbeat)</h2>
+    <div class="card">
+      <textarea id="offsets"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" onclick="saveOffsets()">Save offsets</button>
+        <span class="muted">JSON, same schema as the app's bundled offset_db.json.</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function toast(msg, isErr) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.background = isErr ? '#5c1d1d' : 'var(--panel)';
+  t.style.display = 'block';
+  setTimeout(() => (t.style.display = 'none'), 2500);
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+  if (r.status === 401) { showLogin(); throw new Error('unauthorized'); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok && !j.ok) throw new Error(j.msg || r.status);
+  return j;
+}
+
+function showLogin() {
+  $('login').classList.remove('hidden');
+  $('app').classList.add('hidden');
+}
+function showApp() {
+  $('login').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  refreshAll();
+}
+
+async function login() {
+  try {
+    await api('/api/login', { method: 'POST', body: JSON.stringify({ password: $('pw').value }) });
+    $('pw').value = '';
+    showApp();
+  } catch (e) { toast(e.message, true); }
+}
+
+function fmtExpiry(k) {
+  if (k.revoked) return '—';
+  if (k.permanent) return 'permanent';
+  if (k.expired) return 'expired';
+  return new Date(k.expiry_ts).toLocaleString();
+}
+
+function keyStatus(k) {
+  if (k.revoked) return '<span class="tag revoked">revoked</span>';
+  if (k.expired) return '<span class="tag expired">expired</span>';
+  if (k.used_by) return '<span class="tag used">used</span>';
+  return '<span class="tag ok">unused</span>';
+}
+
+async function refreshKeys() {
+  const j = await api('/api/keys');
+  const tb = $('keysTable').querySelector('tbody');
+  tb.innerHTML = '';
+  for (const k of j.keys) {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td class="mono">${k.key}</td>` +
+      `<td><span class="tag ${k.tier}">${k.tier}</span></td>` +
+      `<td class="muted">${fmtExpiry(k)}</td>` +
+      `<td>${keyStatus(k)}</td>` +
+      `<td class="mono muted">${k.used_by ? k.used_by.slice(0, 18) + '…' : ''}</td>` +
+      `<td>${k.revoked ? '' : `<button onclick="revokeKey(${k.id})">revoke</button> `}` +
+      `<button class="danger" onclick="deleteKey(${k.id})">delete</button></td>`;
+    tb.appendChild(tr);
+  }
+}
+
+async function refreshDevices() {
+  const j = await api('/api/devices');
+  const tb = $('devicesTable').querySelector('tbody');
+  tb.innerHTML = '';
+  for (const d of j.devices) {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td class="mono">${d.device_id}</td>` +
+      `<td>${d.version || ''}</td>` +
+      `<td>${d.mlbb || ''}</td>` +
+      `<td><span class="tag ${d.tier}">${d.tier}</span></td>` +
+      `<td class="muted">${new Date(d.last_seen).toLocaleString()}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+async function refreshStats() {
+  const j = await api('/api/stats');
+  $('stats').innerHTML =
+    `<div class="stat"><b>${j.keys}</b><span>keys total</span></div>` +
+    `<div class="stat"><b>${j.used}</b><span>keys used</span></div>` +
+    `<div class="stat"><b>${j.premium}</b><span>premium keys</span></div>` +
+    `<div class="stat"><b>${j.devices}</b><span>devices seen</span></div>` +
+    `<div class="stat"><b>${j.kill ? 'ON' : 'OFF'}</b><span>kill switch</span></div>`;
+  const kb = $('killBtn');
+  kb.textContent = j.kill ? 'Kill switch: ON — disable all' : 'Kill switch: OFF — enable';
+}
+
+async function refreshOffsets() {
+  const j = await api('/api/offsets');
+  $('offsets').value = JSON.stringify(j.offsets, null, 2);
+}
+
+async function refreshAll() {
+  try {
+    await Promise.all([refreshStats(), refreshKeys(), refreshDevices(), refreshOffsets()]);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function createKeys() {
+  const unit = $('unit').value;
+  const amount = unit === 'perm' ? 0 : parseInt($('amount').value || '1', 10);
+  try {
+    const j = await api('/api/keys', {
+      method: 'POST',
+      body: JSON.stringify({ tier: $('tier').value, unit, amount, count: $('count').value }),
+    });
+    const list = j.created.map((k) => `<span class="mono">${k.key}</span>`).join('<br>');
+    $('genHelp').innerHTML = `Created ${j.created.length} key(s):<br>${list}`;
+    refreshKeys();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function revokeKey(id) {
+  await api(`/api/keys/${id}/revoke`, { method: 'POST', body: '{}' });
+  refreshKeys();
+}
+
+async function deleteKey(id) {
+  if (!confirm('Delete this key permanently?')) return;
+  await api(`/api/keys/${id}/delete`, { method: 'POST', body: '{}' });
+  refreshKeys();
+}
+
+async function toggleKill() {
+  const j = await api('/api/kill', { method: 'POST', body: JSON.stringify({ kill: !$('killBtn').textContent.includes('ON — disable') }) });
+  toast('Kill switch ' + (j.kill ? 'ON' : 'OFF'));
+  refreshStats();
+}
+
+async function saveOffsets() {
+  try {
+    await api('/api/offsets', { method: 'POST', body: JSON.stringify({ offsets: JSON.parse($('offsets').value) }) });
+    toast('Offsets saved — next heartbeat delivers them');
+  } catch (e) { toast(e.message, true); }
+}
+
+setInterval(() => { if (!$('app').classList.contains('hidden')) refreshAll(); }, 15000);
+
+showLogin();
+</script>
+</body>
+</html>

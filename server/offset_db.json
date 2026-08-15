@@ -1,0 +1,21 @@
+{
+  "versions": [
+    {
+      "version": "unknown",
+      "enemy_base": 0,
+      "player_size": 0,
+      "player_x_off": 0,
+      "player_y_off": 0,
+      "player_hp_off": 0,
+      "camera_zoom_addr": 0,
+      "camera_pitch_addr": 0,
+      "camera_yaw_addr": 0,
+      "minimap_origin_x_addr": 0,
+      "minimap_origin_y_addr": 0,
+      "minimap_scale_addr": 0,
+      "game_state_addr": 0,
+      "ai_move_speed_addr": 0,
+      "retri_cd_addr": 0
+    }
+  ]
+}
