@@ -14,10 +14,20 @@ android {
         versionName "1.0"
     }
 
+    signingConfigs {
+        release {
+            storeFile file('C:/Users/mitra/AppData/Local/Temp/opencode/mlbb-build/mlbbcheat.jks')
+            storePassword 'mlbbcheat123'
+            keyAlias 'mlbbcheat'
+            keyPassword 'mlbbcheat123'
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true
             shrinkResources true
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {

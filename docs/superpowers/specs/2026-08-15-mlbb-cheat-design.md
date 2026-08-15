@@ -506,6 +506,11 @@ mlbb-cheat/
 - All communications encrypted
 - Self-destruct if tampered with
 - Random delays on all operations
+- **ALWAYS copy the built APKs into the repo** after every successful build:
+  - Source: `C:\Users\mitra\AppData\Local\Temp\opencode\mlbb-build\app\outputs\apk\debug\app-debug.apk`
+  - Source: `C:\Users\mitra\AppData\Local\Temp\opencode\mlbb-build\app\outputs\apk\release\app-release-unsigned.apk`
+  - Destination: `Xmisus\dist\` (create if missing), e.g. `dist\app-debug.apk` and `dist\app-release-unsigned.apk`
+  - This keeps the latest APKs inside the Xmisus repo so they are always accessible and versioned with git.
 
 ---
 
