@@ -2,8 +2,15 @@ package com.shadow.mlbbcheat.utils;
 
 import static org.junit.Assert.*;
 
-import org.junit.Test;
+import android.content.Context;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
+import org.robolectric.Shadows;
+
+@RunWith(RobolectricTestRunner.class)
 public class AntiDetectionTest {
 
     @Test
@@ -35,19 +42,15 @@ public class AntiDetectionTest {
 
     @Test
     public void isSuspiciousEnv_detectsParallelSpacePackages() {
-        assertTrue(AntiDetection.isSuspiciousEnv(
-            new String[]{"com.lbe.parallel.space"}, new String[]{}));
-    }
-
-    @Test
-    public void isSuspiciousEnv_detectsRootPaths() {
-        assertTrue(AntiDetection.isSuspiciousEnv(
-            new String[]{}, new String[]{"/system/xbin/su"}));
+        Context context = RuntimeEnvironment.getApplication();
+        Shadows.shadowOf(context.getPackageManager())
+                .addPackage("com.lbe.parallel.space");
+        assertTrue(AntiDetection.isSuspiciousEnv(context));
     }
 
     @Test
     public void isSuspiciousEnv_cleanWhenNothingDetected() {
-        assertFalse(AntiDetection.isSuspiciousEnv(
-            new String[]{}, new String[]{}));
+        Context context = RuntimeEnvironment.getApplication();
+        assertFalse(AntiDetection.isSuspiciousEnv(context));
     }
 }

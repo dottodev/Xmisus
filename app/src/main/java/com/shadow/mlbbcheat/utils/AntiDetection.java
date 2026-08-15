@@ -46,19 +46,10 @@ public final class AntiDetection {
         return out;
     }
 
-    public static boolean isSuspiciousEnv() {
-        return isSuspiciousEnv(VIRTUAL_ENV_PACKAGES, ROOT_PATHS);
-    }
-
-    static boolean isSuspiciousEnv(String[] packages, String[] paths) {
-        android.content.pm.PackageManager pm = null;
-        try {
-            pm = android.app.ActivityThread.currentApplication()
-                    .getPackageManager();
-        } catch (Throwable ignored) {
-        }
-        if (pm != null) {
-            for (String pkg : packages) {
+    public static boolean isSuspiciousEnv(android.content.Context context) {
+        if (context != null) {
+            android.content.pm.PackageManager pm = context.getPackageManager();
+            for (String pkg : VIRTUAL_ENV_PACKAGES) {
                 try {
                     pm.getPackageInfo(pkg, 0);
                     return true;
@@ -66,6 +57,10 @@ public final class AntiDetection {
                 }
             }
         }
+        return isSuspiciousEnv(new String[]{}, ROOT_PATHS);
+    }
+
+    static boolean isSuspiciousEnv(String[] packages, String[] paths) {
         for (String path : paths) {
             if (new java.io.File(path).exists()) return true;
         }

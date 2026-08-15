@@ -94,6 +94,10 @@ public class DataReceiver implements AutoCloseable {
     }
 
     @Override
+    public void close() {
+        stop();
+    }
+
     public void stop() {
         running = false;
         try {
@@ -103,7 +107,6 @@ public class DataReceiver implements AutoCloseable {
     }
 
     public static byte[] encodeFrame(PlayerData p) {
-        if (p.id < 0 || p.id > 255) return null;
         byte[] frame = new byte[FRAME_SIZE];
         frame[0] = 0x01;
         frame[1] = (byte) (p.isEnemy ? 1 : 0);

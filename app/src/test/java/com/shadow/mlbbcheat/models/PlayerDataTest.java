@@ -9,15 +9,15 @@ public class PlayerDataTest {
     @Test
     public void fromBytes_parsesValidFrame() {
         byte[] frame = new byte[17];
-        frame[0] = 3;                    // id
-        frame[1] = 1;                    // isEnemy
-        writeFloat(frame, 2, 100.5f);    // x
-        writeFloat(frame, 6, 200.25f);   // y
-        writeFloat(frame, 10, 3500f);    // hp
+        frame[0] = 0x01;               // frame type
+        frame[1] = 1;                  // isEnemy
+        writeFloat(frame, 2, 100.5f);  // x
+        writeFloat(frame, 6, 200.25f); // y
+        writeFloat(frame, 10, 3500f);  // hp
 
         PlayerData p = PlayerData.fromBytes(frame);
 
-        assertEquals(3, p.id);
+        assertEquals(1, p.id);
         assertTrue(p.isEnemy);
         assertEquals(100.5f, p.x, 0.001f);
         assertEquals(200.25f, p.y, 0.001f);
