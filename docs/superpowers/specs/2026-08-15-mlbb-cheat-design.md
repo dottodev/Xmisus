@@ -491,10 +491,18 @@ mlbb-cheat/
 
 ## Future Enhancements (Phase 2)
 
-- AdMob integration
-- Server-side memory offset updates
-- User accounts and statistics
-- Premium features
+DONE (v1.1.0):
+- AdMob integration (banner + rewarded; rewarded gives +1h premium)
+- Server-side memory offset updates (reference server delivers offset DB via heartbeat)
+- Premium features (drone view + auto aim; gated by PremiumManager)
+- Key system instead of accounts: user redeems a key, server validates
+  (tier + expiry + one-device binding), grant stored signed client-side
+
+REMAINING:
+- Key generation website (create/sell keys server-side)
+- Real AdMob ad unit IDs (currently Google test IDs)
+- Hosted control server (deploy server/server.js)
+- User accounts and statistics (later, if desired)
 - iOS support via jailbreak
 
 ---

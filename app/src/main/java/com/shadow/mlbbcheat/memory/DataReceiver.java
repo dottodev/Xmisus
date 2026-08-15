@@ -36,6 +36,10 @@ public class DataReceiver implements AutoCloseable {
     private volatile boolean running = false;
     private ServerSocket server;
 
+    // Rolling-XOR decode state (self-synchronizing, resets per connection)
+    private static final byte BOOTSTRAP_KEY = 0x5A;
+    private byte xorKey = BOOTSTRAP_KEY;
+
     public void start() throws IOException {
         running = true;
         server = new ServerSocket(PORT, 4, InetAddress.getLoopbackAddress());
@@ -48,15 +52,34 @@ public class DataReceiver implements AutoCloseable {
         while (running) {
             try (Socket socket = server.accept();
                  InputStream in = socket.getInputStream()) {
+                xorKey = BOOTSTRAP_KEY; // new Lua session
                 byte[] buf = new byte[FRAME_SIZE];
                 int read;
                 while (running && (read = in.read(buf)) != -1) {
                     if (read < FRAME_SIZE) continue;
-                    handleFrame(buf);
+                    handleFrame(decodeFrame(buf));
                 }
             } catch (IOException ignored) {
             }
         }
+    }
+
+    /**
+     * Decode a rolling-XOR frame. Byte 14 (reserved slot) carries the key
+     * for the NEXT frame in plaintext; bytes 0-13 and 15-16 are XORed with
+     * the current key. TCP ordering makes this self-synchronizing.
+     */
+    private byte[] decodeFrame(byte[] frame) {
+        byte[] out = new byte[FRAME_SIZE];
+        for (int i = 0; i < FRAME_SIZE; i++) {
+            if (i == 14) {
+                out[i] = frame[i];
+                continue;
+            }
+            out[i] = (byte) (frame[i] ^ xorKey);
+        }
+        xorKey = frame[14];
+        return out;
     }
 
     private void handleFrame(byte[] frame) {

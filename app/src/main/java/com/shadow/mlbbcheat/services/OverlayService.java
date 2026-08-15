@@ -10,16 +10,29 @@ import android.os.IBinder;
 import android.os.Vibrator;
 import android.view.WindowManager;
 
+import com.shadow.mlbbcheat.memory.DataReceiver;
 import com.shadow.mlbbcheat.models.PlayerData;
 import com.shadow.mlbbcheat.overlay.OverlayView;
 import com.shadow.mlbbcheat.overlay.WidgetManager;
-import com.shadow.mlbbcheat.memory.DataReceiver;
+import com.shadow.mlbbcheat.utils.BehaviorMimic;
+import com.shadow.mlbbcheat.utils.HoneypotDetector;
 
 import java.util.List;
 
+/**
+ * Foreground overlay service.
+ *
+ * Hosts:
+ *  - full-screen touch-through ESP view fed by the bridge
+ *  - floating toggle widget
+ *  - enemy proximity alerts (vibration, gated by a human-like cooldown)
+ *  - honeypot detection: when the data stream looks fake, ESP is throttled
+ *    to a safe profile instead of painting a target on the user's back.
+ */
 public class OverlayService extends Service {
 
     private static final String CHANNEL_ID = "mlbb_cheat_overlay";
+    private static final long ALERT_MIN_INTERVAL_MS = 900;
 
     private DataReceiver dataReceiver;
     private WidgetManager widgetManager;
@@ -27,9 +40,13 @@ public class OverlayService extends Service {
     private WindowManager windowManager;
     private Vibrator vibrator;
 
+    private final HoneypotDetector honeypot = new HoneypotDetector();
+
     private boolean espEnabled = true;
     private boolean droneEnabled = false;
     private boolean aimEnabled = false;
+    private long lastAlertAt = 0L;
+    private boolean stealthMode = false;
 
     @Override
     public void onCreate() {
@@ -60,20 +77,43 @@ public class OverlayService extends Service {
     }
 
     private void onToggle(String feature, boolean enabled) {
-        if ("esp".equals(feature)) espEnabled = enabled;
-        if ("drone".equals(feature)) droneEnabled = enabled;
-        if ("aim".equals(feature)) aimEnabled = enabled;
+        if ("esp".equals(feature)) {
+            espEnabled = enabled;
+        } else if ("drone".equals(feature)) {
+            droneEnabled = enabled;
+        } else if ("aim".equals(feature)) {
+            aimEnabled = enabled;
+            AutoRetriService svc = AutoRetriService.getInstance();
+            if (svc != null) svc.setAimEnabled(enabled);
+        }
     }
 
     private void onPlayersUpdated(List<PlayerData> players) {
+        if (players == null || players.isEmpty()) return;
+
+        HoneypotDetector.Verdict verdict = honeypot.assess(players);
+        stealthMode = verdict.suspicious;
+
         if (espEnabled && overlayView != null) {
+            if (stealthMode) {
+                // Safe profile: show only distances, no target boxes
+                overlayView.setStealthMode(true);
+            } else {
+                overlayView.setStealthMode(false);
+            }
             overlayView.setEnemies(players);
         }
-        if (vibrator != null) {
-            for (PlayerData p : players) {
-                if (p.isEnemy && p.isAlive() && p.distanceTo(0f, 0f) < 200f) {
-                    vibrator.vibrate(150);
-                    break;
+
+        if (vibrator != null && !stealthMode) {
+            long now = System.currentTimeMillis();
+            if (now - lastAlertAt >= ALERT_MIN_INTERVAL_MS) {
+                for (PlayerData p : players) {
+                    if (p.isEnemy && p.isAlive()
+                            && p.distanceTo(0f, 0f) < 200f) {
+                        vibrator.vibrate(BehaviorMimic.idleDelayMs(120, 180));
+                        lastAlertAt = now;
+                        break;
+                    }
                 }
             }
         }

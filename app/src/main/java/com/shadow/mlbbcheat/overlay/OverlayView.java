@@ -27,6 +27,13 @@ public class OverlayView extends View {
     private float mapScale = 0.05f;
     private float mapOffsetX = 0f;
     private float mapOffsetY = 0f;
+    private boolean stealthMode = false;
+
+    /** Stealth: no boxes/lines, only distance text (honeypot-safe). */
+    public void setStealthMode(boolean stealth) {
+        this.stealthMode = stealth;
+        invalidate();
+    }
 
     public OverlayView(Context context) {
         super(context);
@@ -70,6 +77,12 @@ public class OverlayView extends View {
 
         for (PlayerData p : enemies) {
             if (!p.isEnemy || !p.isAlive()) continue;
+
+            if (stealthMode) {
+                canvas.drawText("E " + Math.round(p.distanceTo(0f, 0f)) + "u",
+                        centerX, centerY - 40f, textPaint);
+                continue;
+            }
 
             RectF box = worldToScreenRect(p, 2f);
             canvas.drawRect(box, p.hp < 30f ? lowHpPaint : boxPaint);
