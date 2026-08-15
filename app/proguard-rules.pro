@@ -1,0 +1,4 @@
+-keep class com.shadow.mlbbcheat.MainActivity { *; }
+-keep class com.shadow.mlbbcheat.services.OverlayService { *; }
+-keep class com.shadow.mlbbcheat.services.AutoRetriService { *; }
+-keep class com.shadow.mlbbcheat.services.ScriptService { *; }
