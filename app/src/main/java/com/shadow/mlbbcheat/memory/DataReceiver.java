@@ -83,20 +83,24 @@ public class DataReceiver implements AutoCloseable {
     }
 
     private void handleFrame(byte[] frame) {
-        byte type = frame[0];
-        if (type == 0x01) {
-            PlayerData p = PlayerData.fromBytes(frame);
-            if (p.id >= 0) {
-                players.add(p);
-                if (listener != null) listener.onPlayersUpdated(players);
+        try {
+            byte type = frame[0];
+            if (type == 0x01) {
+                PlayerData p = PlayerData.fromBytes(frame);
+                if (p.id >= 0) {
+                    players.add(p);
+                    if (listener != null) listener.onPlayersUpdated(players);
+                }
+            } else if (type == 0x02) {
+                ByteBuffer b = ByteBuffer.wrap(frame).order(ByteOrder.LITTLE_ENDIAN);
+                playerLevel = b.getFloat(2);
+            } else if (type == 0x03) {
+                droneViewEnabled = frame[2] != 0;
+            } else if (type == 0x04) {
+                players.clear();
             }
-        } else if (type == 0x02) {
-            ByteBuffer b = ByteBuffer.wrap(frame).order(ByteOrder.LITTLE_ENDIAN);
-            playerLevel = b.getFloat(2);
-        } else if (type == 0x03) {
-            droneViewEnabled = frame[2] != 0;
-        } else if (type == 0x04) {
-            players.clear();
+        } catch (Throwable t) {
+            com.shadow.mlbbcheat.utils.CrashLog.log("handleFrame: " + t);
         }
     }
 

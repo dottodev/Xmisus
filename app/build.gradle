@@ -10,8 +10,8 @@ android {
         applicationId "com.shadow.mlbbcheat"
         minSdk 24
         targetSdk 34
-        versionCode 3
-        versionName "1.2.0"
+        versionCode 4
+        versionName "1.2.1"
     }
 
     signingConfigs {
@@ -52,7 +52,6 @@ buildDir = file('C:/Users/mitra/AppData/Local/Temp/opencode/mlbb-build/app')
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
-    implementation 'com.google.android.gms:play-services-ads:22.6.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.11.1'
 }

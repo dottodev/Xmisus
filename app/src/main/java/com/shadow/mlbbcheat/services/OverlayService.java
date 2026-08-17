@@ -153,11 +153,16 @@ public class OverlayService extends Service {
 
     @Override
     public void onDestroy() {
-        if (widgetManager != null) widgetManager.hide();
-        if (overlayView != null && overlayView.getParent() != null) {
-            windowManager.removeView(overlayView);
+        try {
+            if (widgetManager != null) widgetManager.hide();
+            if (overlayView != null && overlayView.getParent() != null
+                    && windowManager != null) {
+                windowManager.removeView(overlayView);
+            }
+            if (dataReceiver != null) dataReceiver.stop();
+        } catch (Throwable t) {
+            com.shadow.mlbbcheat.utils.CrashLog.log("OverlayService.onDestroy: " + t);
         }
-        if (dataReceiver != null) dataReceiver.stop();
         super.onDestroy();
     }
 }

@@ -20,6 +20,7 @@ import android.widget.Toast;
 import com.shadow.mlbbcheat.license.PremiumManager;
 import com.shadow.mlbbcheat.services.OverlayService;
 import com.shadow.mlbbcheat.services.ScriptService;
+import com.shadow.mlbbcheat.utils.CrashLog;
 import com.shadow.mlbbcheat.utils.PermissionsHelper;
 
 /**
@@ -39,8 +40,14 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(buildUi());
-        copyAssets();
+        CrashLog.init(this);
+        try {
+            setContentView(buildUi());
+            copyAssets();
+        } catch (Throwable t) {
+            CrashLog.log("MainActivity.onCreate failed: " + t);
+            finish();
+        }
     }
 
     // ------------------------------------------------------------------
@@ -127,7 +134,7 @@ public class MainActivity extends Activity {
             version.setText("v" + getPackageManager()
                     .getPackageInfo(getPackageName(), 0).versionName);
         } catch (PackageManager.NameNotFoundException e) {
-            version.setText("v1.2.0");
+            version.setText("v1.2.1");
         }
         version.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         version.setTextColor(Color.parseColor("#5A5A70"));
@@ -203,13 +210,19 @@ public class MainActivity extends Activity {
     }
 
     private boolean stackRunning() {
-        ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-        if (am == null) return false;
-        for (ActivityManager.RunningServiceInfo s : am.getRunningServices(256)) {
-            if (s.service.getClassName().equals(ScriptService.class.getName())
-                    || s.service.getClassName().equals(OverlayService.class.getName())) {
-                return true;
+        try {
+            ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+            if (am == null) return false;
+            java.util.List<ActivityManager.RunningServiceInfo> services =
+                    am.getRunningServices(256);
+            if (services == null) return false;
+            for (ActivityManager.RunningServiceInfo s : services) {
+                if (s.service.getClassName().equals(ScriptService.class.getName())
+                        || s.service.getClassName().equals(OverlayService.class.getName())) {
+                    return true;
+                }
             }
+        } catch (Throwable ignored) {
         }
         return false;
     }

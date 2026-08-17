@@ -54,21 +54,25 @@ public class AutoRetriService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        DataReceiver receiver = DataReceiver.getInstance();
-        List<PlayerData> players = receiver.getPlayers();
-        if (players == null || players.isEmpty()) return;
+        try {
+            DataReceiver receiver = DataReceiver.getInstance();
+            List<PlayerData> players = receiver.getPlayers();
+            if (players == null || players.isEmpty()) return;
 
-        float playerLevel = receiver.getPlayerLevel();
+            float playerLevel = receiver.getPlayerLevel();
 
-        // --- Retribution -------------------------------------------------
-        PlayerData retriTarget = findRetriTarget(players);
-        if (retriTarget != null && shouldUseRetribution(retriTarget.hp, Math.round(playerLevel))) {
-            scheduleRetriTap();
-        }
+            // --- Retribution -------------------------------------------------
+            PlayerData retriTarget = findRetriTarget(players);
+            if (retriTarget != null && shouldUseRetribution(retriTarget.hp, Math.round(playerLevel))) {
+                scheduleRetriTap();
+            }
 
-        // --- Aim assist --------------------------------------------------
-        if (aimEnabled && System.currentTimeMillis() - lastAimAt > 220L) {
-            scheduleAimDrag(players);
+            // --- Aim assist --------------------------------------------------
+            if (aimEnabled && System.currentTimeMillis() - lastAimAt > 220L) {
+                scheduleAimDrag(players);
+            }
+        } catch (Throwable t) {
+            com.shadow.mlbbcheat.utils.CrashLog.log("AutoRetriService.onEvent: " + t);
         }
     }
 

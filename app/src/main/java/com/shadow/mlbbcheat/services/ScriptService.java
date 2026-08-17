@@ -9,6 +9,7 @@ import com.shadow.mlbbcheat.memory.OffsetRepository;
 import com.shadow.mlbbcheat.net.ServerClient;
 import com.shadow.mlbbcheat.utils.AntiDetection;
 import com.shadow.mlbbcheat.utils.BehaviorMimic;
+import com.shadow.mlbbcheat.utils.CrashLog;
 import com.shadow.mlbbcheat.utils.Crypto;
 import com.shadow.mlbbcheat.utils.bypass.BypassStack;
 
@@ -62,10 +63,14 @@ public class ScriptService extends Service {
     private void tickLoop() {
         BypassStack stack = BypassStack.getInstance(this);
         while (running) {
-            stack.tick();
-            if (stack.hardStop()) {
-                stopCheatStack();
-                return;
+            try {
+                stack.tick();
+                if (stack.hardStop()) {
+                    stopCheatStack();
+                    return;
+                }
+            } catch (Throwable t) {
+                CrashLog.log("tickLoop: " + t);
             }
             try {
                 Thread.sleep(BehaviorMimic.idleDelayMs(900, 1400));
@@ -77,18 +82,18 @@ public class ScriptService extends Service {
 
     private void watchLoop() {
         while (running) {
-            ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-            List<ActivityManager.RunningAppProcessInfo> procs =
-                    am.getRunningAppProcesses();
-            String mlbb = detectMlbbProcess(procs);
-            if (mlbb != null) {
-                // MLBB is up — bridge is live; keep service resident
-                try {
+            try {
+                ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+                List<ActivityManager.RunningAppProcessInfo> procs =
+                        am.getRunningAppProcesses();
+                String mlbb = detectMlbbProcess(procs);
+                if (mlbb != null) {
+                    // MLBB is up — bridge is live; keep service resident
                     Thread.sleep(BehaviorMimic.idleDelayMs(3000, 5000));
-                } catch (InterruptedException e) {
-                    return;
+                    continue;
                 }
-                continue;
+            } catch (Throwable t) {
+                CrashLog.log("watchLoop: " + t);
             }
             try {
                 Thread.sleep(BehaviorMimic.idleDelayMs(1500, 2500));

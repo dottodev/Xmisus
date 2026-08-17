@@ -63,12 +63,16 @@ public class OverlayView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         if (esp.shouldSkipFrame()) return;
-        long now = System.currentTimeMillis();
-        float cx = getWidth() / 2f;
-        float cy = getHeight() / 2f;
-        AdvancedEsp.DrawBatch batch = esp.computeBatch(now, getWidth(), getHeight(), cx, cy);
-        esp.render(canvas, batch);
-        esp.prune(now);
+        try {
+            long now = System.currentTimeMillis();
+            float cx = getWidth() / 2f;
+            float cy = getHeight() / 2f;
+            AdvancedEsp.DrawBatch batch = esp.computeBatch(now, getWidth(), getHeight(), cx, cy);
+            esp.render(canvas, batch);
+            esp.prune(now);
+        } catch (Throwable t) {
+            com.shadow.mlbbcheat.utils.CrashLog.log("OverlayView.onDraw: " + t);
+        }
     }
 
     // ------------------------------------------------------------------
