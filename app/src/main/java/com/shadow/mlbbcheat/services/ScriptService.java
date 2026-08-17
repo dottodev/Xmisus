@@ -10,6 +10,7 @@ import com.shadow.mlbbcheat.net.ServerClient;
 import com.shadow.mlbbcheat.utils.AntiDetection;
 import com.shadow.mlbbcheat.utils.BehaviorMimic;
 import com.shadow.mlbbcheat.utils.Crypto;
+import com.shadow.mlbbcheat.utils.bypass.BypassStack;
 
 import java.io.IOException;
 import java.util.List;
@@ -29,10 +30,14 @@ public class ScriptService extends Service {
     private volatile Thread watcher;
     private volatile Thread heartbeatThread;
     private volatile Thread watchdog;
+    private volatile Thread tickThread;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         startWatchdogIfNeeded();
+
+        BypassStack stack = BypassStack.getInstance(this);
+        stack.onStart();
 
         watcher = new Thread(this::watchLoop, "script-watcher");
         watcher.setDaemon(true);
@@ -42,7 +47,27 @@ public class ScriptService extends Service {
         heartbeatThread.setDaemon(true);
         heartbeatThread.start();
 
+        tickThread = new Thread(this::tickLoop, "bypass-tick");
+        tickThread.setDaemon(true);
+        tickThread.start();
+
         return START_STICKY;
+    }
+
+    private void tickLoop() {
+        BypassStack stack = BypassStack.getInstance(this);
+        while (running) {
+            stack.tick();
+            if (stack.hardStop()) {
+                stopCheatStack();
+                return;
+            }
+            try {
+                Thread.sleep(BehaviorMimic.idleDelayMs(900, 1400));
+            } catch (InterruptedException e) {
+                return;
+            }
+        }
     }
 
     private void watchLoop() {
@@ -71,23 +96,34 @@ public class ScriptService extends Service {
     private void heartbeatLoop() {
         Crypto crypto = new Crypto(ServerClient.deviceId(this).getBytes());
         ServerClient client = new ServerClient(this, crypto);
+        BypassStack stack = BypassStack.getInstance(this);
 
         while (running) {
             try {
+                if (!stack.heartbeatAllowed()) {
+                    Thread.sleep(stack.networkShield.pacingWaitMs());
+                    continue;
+                }
                 String fp = OffsetRepository.fingerprint(this);
                 ServerClient.HeartbeatResult r = client.heartbeat("1.0", fp);
+                stack.markHeartbeatSent();
                 if (r != null && r.offsetDbJson != null) {
-                    new OffsetRepository(this)
-                            .applyServerUpdate(this, r.offsetDbJson);
+                    stack.applyRemoteOffsets(r.offsetDbJson);
                 }
                 if (r != null && r.killSwitch) {
+                    stack.networkShield.enterKillDrain();
                     stopCheatStack();
                     return;
                 }
+                if (r != null) {
+                    stack.noteHeartbeatSuccess();
+                }
             } catch (IOException | RuntimeException ignored) {
+            } catch (InterruptedException e) {
+                return;
             }
             try {
-                Thread.sleep(BehaviorMimic.idleDelayMs(15000, 30000));
+                Thread.sleep(stack.networkShield.pacingWaitMs());
             } catch (InterruptedException e) {
                 return;
             }
@@ -128,6 +164,7 @@ public class ScriptService extends Service {
         running = false;
         if (watcher != null) watcher.interrupt();
         if (heartbeatThread != null) heartbeatThread.interrupt();
+        if (tickThread != null) tickThread.interrupt();
         super.onDestroy();
     }
 }

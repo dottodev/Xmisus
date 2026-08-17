@@ -10,10 +10,11 @@ public class PlayerDataTest {
     public void fromBytes_parsesValidFrame() {
         byte[] frame = new byte[17];
         frame[0] = 0x01;               // frame type
-        frame[1] = 1;                  // isEnemy
-        writeFloat(frame, 2, 100.5f);  // x
-        writeFloat(frame, 6, 200.25f); // y
-        writeFloat(frame, 10, 3500f);  // hp
+        frame[1] = 1;                  // id
+        frame[2] = 1;                  // isEnemy
+        writeFloat(frame, 3, 100.5f);  // x
+        writeFloat(frame, 7, 200.25f); // y
+        writeFloat(frame, 11, 3500f);  // hp
 
         PlayerData p = PlayerData.fromBytes(frame);
 
@@ -28,7 +29,7 @@ public class PlayerDataTest {
     @Test
     public void isAlive_falseWhenHpZero() {
         byte[] frame = new byte[17];
-        writeFloat(frame, 10, 0f);
+        writeFloat(frame, 11, 0f);
 
         PlayerData p = PlayerData.fromBytes(frame);
 

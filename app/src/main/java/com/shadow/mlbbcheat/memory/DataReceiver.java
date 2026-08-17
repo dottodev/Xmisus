@@ -132,11 +132,12 @@ public class DataReceiver implements AutoCloseable {
     public static byte[] encodeFrame(PlayerData p) {
         byte[] frame = new byte[FRAME_SIZE];
         frame[0] = 0x01;
-        frame[1] = (byte) (p.isEnemy ? 1 : 0);
+        frame[1] = (byte) p.id;
+        frame[2] = (byte) (p.isEnemy ? 1 : 0);
         ByteBuffer b = ByteBuffer.wrap(frame).order(ByteOrder.LITTLE_ENDIAN);
-        b.putFloat(2, p.x);
-        b.putFloat(6, p.y);
-        b.putFloat(10, p.hp);
+        b.putFloat(3, p.x);
+        b.putFloat(7, p.y);
+        b.putFloat(11, p.hp);
         return frame;
     }
 }

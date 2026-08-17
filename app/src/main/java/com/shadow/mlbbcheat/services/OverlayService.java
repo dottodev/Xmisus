@@ -16,6 +16,7 @@ import com.shadow.mlbbcheat.overlay.OverlayView;
 import com.shadow.mlbbcheat.overlay.WidgetManager;
 import com.shadow.mlbbcheat.utils.BehaviorMimic;
 import com.shadow.mlbbcheat.utils.HoneypotDetector;
+import com.shadow.mlbbcheat.utils.bypass.BypassStack;
 
 import java.util.List;
 
@@ -41,6 +42,7 @@ public class OverlayService extends Service {
     private Vibrator vibrator;
 
     private final HoneypotDetector honeypot = new HoneypotDetector();
+    private BypassStack bypassStack;
 
     private boolean espEnabled = true;
     private boolean droneEnabled = false;
@@ -54,6 +56,9 @@ public class OverlayService extends Service {
         startForeground(1, buildNotification());
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+
+        bypassStack = BypassStack.getInstance(this);
+        bypassStack.onStart();
 
         overlayView = new OverlayView(this);
         WindowManager.LayoutParams overlayParams = new WindowManager.LayoutParams(
@@ -91,27 +96,26 @@ public class OverlayService extends Service {
     private void onPlayersUpdated(List<PlayerData> players) {
         if (players == null || players.isEmpty()) return;
 
-        HoneypotDetector.Verdict verdict = honeypot.assess(players);
-        stealthMode = verdict.suspicious;
+        long now = System.currentTimeMillis();
+        List<PlayerData> safe = bypassStack.sanitizeEnemies(players, now);
+        if (safe == null || safe.isEmpty()) return;
+
+        HoneypotDetector.Verdict verdict = honeypot.assess(safe);
+        stealthMode = verdict.suspicious || bypassStack.espStealth();
 
         if (espEnabled && overlayView != null) {
-            if (stealthMode) {
-                // Safe profile: show only distances, no target boxes
-                overlayView.setStealthMode(true);
-            } else {
-                overlayView.setStealthMode(false);
-            }
-            overlayView.setEnemies(players);
+            overlayView.setStealthMode(stealthMode);
+            overlayView.setEnemies(safe);
         }
 
-        if (vibrator != null && !stealthMode) {
-            long now = System.currentTimeMillis();
-            if (now - lastAlertAt >= ALERT_MIN_INTERVAL_MS) {
-                for (PlayerData p : players) {
+        if (vibrator != null && !stealthMode && bypassStack.allowVibrate()) {
+            long now2 = System.currentTimeMillis();
+            if (now2 - lastAlertAt >= ALERT_MIN_INTERVAL_MS) {
+                for (PlayerData p : safe) {
                     if (p.isEnemy && p.isAlive()
                             && p.distanceTo(0f, 0f) < 200f) {
                         vibrator.vibrate(BehaviorMimic.idleDelayMs(120, 180));
-                        lastAlertAt = now;
+                        lastAlertAt = now2;
                         break;
                     }
                 }
