@@ -1,0 +1,6 @@
+server/*.log
+server/server.pid
+server/data.db
+server/data.db-journal
+server/data.db-wal
+server/data.db-shm
