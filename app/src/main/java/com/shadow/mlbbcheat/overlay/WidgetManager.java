@@ -4,9 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -19,13 +17,13 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 /**
- * Xmisus floating control panel (v3).
+ * Xmisus floating control panel (v4).
  *
- * Medium-size branded panel with the full module list (ESP / DRONE / AIM /
- * SAFE / LAG), per-module settings rows (⚙), animated minimize to an "X"
- * pill that can be tapped to reopen, drag anywhere, and full persistence:
- * chip on/off states, slider values, and the panel position survive
- * restarts.
+ * Boxed, medium-large card (~72% screen width) with a navy/white theme,
+ * four purpose-based category sections (VISION / UTILITY / DEFENSE /
+ * OFFENSE), per-module settings rows, animated minimize to a circular
+ * pill that reopens via a proper OnClickListener, drag anywhere, and full
+ * persistence.
  */
 public class WidgetManager {
 
@@ -45,6 +43,7 @@ public class WidgetManager {
 
     private static final int PANEL_MIN_X = 8;
     private static final int PANEL_MIN_Y = 60;
+    private static final float PANEL_WIDTH_FRACTION = 0.72f;
 
     private final WindowManager windowManager;
     private final ToggleListener toggleListener;
@@ -134,18 +133,19 @@ public class WidgetManager {
     // ------------------------------------------------------------------
 
     private void initParams(Context context) {
+        int width = Math.round(context.getResources().getDisplayMetrics().widthPixels
+                * PANEL_WIDTH_FRACTION);
         panelParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
+                width, WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 android.graphics.PixelFormat.TRANSLUCENT);
         panelParams.gravity = Gravity.TOP | Gravity.START;
         panelParams.x = prefs.getInt(KEY_POS_X, 16);
-        panelParams.y = prefs.getInt(KEY_POS_Y, 180);
+        panelParams.y = prefs.getInt(KEY_POS_Y, 120);
 
         pillParams = new WindowManager.LayoutParams(
-                dp(context, 52), dp(context, 52),
+                dp(context, 56), dp(context, 56),
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 android.graphics.PixelFormat.TRANSLUCENT);
@@ -161,27 +161,30 @@ public class WidgetManager {
     private void buildPanel(Context context) {
         panel = new LinearLayout(context);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackground(rounded(context, "#F0141420", 16));
-        panel.setPadding(dp(context, 6), dp(context, 6), dp(context, 6), dp(context, 6));
+        panel.setBackground(NavyTheme.bordered(context, NavyTheme.NAVY_PANEL, 20, NavyTheme.NAVY_BORDER));
+        panel.setPadding(dp(context, 12), dp(context, 10), dp(context, 12), dp(context, 12));
 
         panel.addView(buildHeader(context));
 
+        panel.addView(sectionHeader(context, "VISION"));
         espChip = chip(context, "ESP");
         espSettings = buildEspSettings(context);
         panel.addView(moduleRow(context, espChip, espSettings));
 
+        panel.addView(sectionHeader(context, "UTILITY"));
         droneChip = chip(context, "DRONE");
         droneSettings = buildDroneSettings(context);
         panel.addView(moduleRow(context, droneChip, droneSettings));
-
         aimChip = chip(context, "AIM");
         aimSettings = buildAimSettings(context);
         panel.addView(moduleRow(context, aimChip, aimSettings));
 
+        panel.addView(sectionHeader(context, "DEFENSE"));
         safeChip = chip(context, "SAFE");
         safeSettings = buildSafeSettings(context);
         panel.addView(moduleRow(context, safeChip, safeSettings));
 
+        panel.addView(sectionHeader(context, "OFFENSE"));
         lagChip = chip(context, "LAG");
         lagSettings = buildLagSettings(context);
         panel.addView(moduleRow(context, lagChip, lagSettings));
@@ -194,14 +197,23 @@ public class WidgetManager {
         LinearLayout header = new LinearLayout(context);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(context, 4), 0, 0, 0);
+
+        View dot = new View(context);
+        dot.setBackground(NavyTheme.rounded(context, NavyTheme.WHITE, 4));
+        LinearLayout.LayoutParams dotLp = new LinearLayout.LayoutParams(
+                dp(context, 8), dp(context, 8));
+        dotLp.rightMargin = dp(context, 8);
+        dot.setLayoutParams(dotLp);
+        header.addView(dot);
 
         TextView title = new TextView(context);
-        title.setText("X M I S U S");
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        title.setText("XMISUS");
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         title.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
-        title.setTextColor(Color.parseColor("#FF4444"));
-        title.setLetterSpacing(0.08f);
-        title.setPadding(dp(context, 10), dp(context, 6), dp(context, 4), dp(context, 6));
+        title.setTextColor(NavyTheme.WHITE);
+        title.setLetterSpacing(0.12f);
+        title.setPadding(0, dp(context, 6), 0, dp(context, 6));
         header.addView(title);
 
         LinearLayout spacer = new LinearLayout(context);
@@ -212,10 +224,10 @@ public class WidgetManager {
         minBtn.setText("—");
         minBtn.setAllCaps(false);
         minBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        minBtn.setTextColor(Color.WHITE);
-        minBtn.setBackground(rounded(context, "#2A2A3E", 9));
+        minBtn.setTextColor(NavyTheme.WHITE);
+        minBtn.setBackground(NavyTheme.bordered(context, NavyTheme.NAVY_SURFACE, 10, NavyTheme.NAVY_BORDER));
         LinearLayout.LayoutParams minLp = new LinearLayout.LayoutParams(
-                dp(context, 36), dp(context, 30));
+                dp(context, 40), dp(context, 34));
         minLp.rightMargin = dp(context, 2);
         minBtn.setLayoutParams(minLp);
         minBtn.setOnClickListener(v -> minimize());
@@ -223,18 +235,38 @@ public class WidgetManager {
         return header;
     }
 
-    /** One module row: chip + gear. */
+    /** Category header: uppercase label + divider line. */
+    private View sectionHeader(Context context, String label) {
+        LinearLayout sec = new LinearLayout(context);
+        sec.setOrientation(LinearLayout.VERTICAL);
+        TextView t = new TextView(context);
+        t.setText(label);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTextColor(NavyTheme.TEXT_MUTED);
+        t.setLetterSpacing(0.18f);
+        t.setPadding(0, dp(context, 10), 0, dp(context, 4));
+        sec.addView(t);
+        View line = new View(context);
+        line.setBackgroundColor(NavyTheme.NAVY_BORDER);
+        line.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(context, 1)));
+        sec.addView(line);
+        return sec;
+    }
+
+    /** One module row: chip + gear, with settings strip below. */
     private LinearLayout moduleRow(Context context, Button chip, View settings) {
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rowLp.topMargin = dp(context, 5);
+        rowLp.topMargin = dp(context, 7);
         row.setLayoutParams(rowLp);
 
         LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(
-                0, dp(context, 44), 1f);
+                0, dp(context, 48), 1f);
         chip.setLayoutParams(chipLp);
         row.addView(chip);
 
@@ -242,11 +274,11 @@ public class WidgetManager {
         gear.setText("⚙");
         gear.setAllCaps(false);
         gear.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        gear.setTextColor(Color.parseColor("#B8B8CC"));
-        gear.setBackground(rounded(context, "#1A1A28", 10));
+        gear.setTextColor(NavyTheme.TEXT_MUTED);
+        gear.setBackground(NavyTheme.bordered(context, NavyTheme.NAVY_SURFACE, 12, NavyTheme.NAVY_BORDER));
         LinearLayout.LayoutParams gearLp = new LinearLayout.LayoutParams(
-                dp(context, 40), dp(context, 44));
-        gearLp.leftMargin = dp(context, 4);
+                dp(context, 44), dp(context, 48));
+        gearLp.leftMargin = dp(context, 5);
         gear.setLayoutParams(gearLp);
         gear.setOnClickListener(v -> toggleSettings(settings));
         row.addView(gear);
@@ -279,11 +311,11 @@ public class WidgetManager {
     private LinearLayout buildSettingsBase(Context context) {
         LinearLayout s = new LinearLayout(context);
         s.setOrientation(LinearLayout.VERTICAL);
-        s.setBackground(rounded(context, "#10101C", 12));
-        s.setPadding(dp(context, 10), dp(context, 8), dp(context, 10), dp(context, 8));
+        s.setBackground(NavyTheme.bordered(context, NavyTheme.NAVY_SURFACE, 14, NavyTheme.NAVY_BORDER));
+        s.setPadding(dp(context, 12), dp(context, 10), dp(context, 12), dp(context, 10));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(context, 5);
+        lp.topMargin = dp(context, 6);
         s.setLayoutParams(lp);
         s.setVisibility(View.GONE);
         return s;
@@ -294,7 +326,7 @@ public class WidgetManager {
         t.setText(text);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setTextColor(Color.parseColor("#8A8AA0"));
+        t.setTextColor(NavyTheme.TEXT_MUTED);
         t.setPadding(0, dp(context, 2), 0, dp(context, 2));
         return t;
     }
@@ -302,7 +334,8 @@ public class WidgetManager {
     private TextView settingsValue(Context context) {
         TextView t = new TextView(context);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        t.setTextColor(Color.parseColor("#E4E4F0"));
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTextColor(NavyTheme.WHITE);
         t.setGravity(Gravity.END);
         return t;
     }
@@ -428,7 +461,7 @@ public class WidgetManager {
         lagModeBtn.setTypeface(Typeface.DEFAULT_BOLD);
         refreshLagModeBtn();
         LinearLayout.LayoutParams modeLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(context, 38));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(context, 40));
         modeLp.topMargin = dp(context, 6);
         lagModeBtn.setLayoutParams(modeLp);
         lagModeBtn.setOnClickListener(v -> {
@@ -445,8 +478,9 @@ public class WidgetManager {
         if (lagModeBtn == null) return;
         String[] modes = {"MODE: STUTTER", "MODE: FREEZE", "MODE: RUBBER"};
         lagModeBtn.setText(modes[lagMode]);
-        lagModeBtn.setTextColor(Color.WHITE);
-        lagModeBtn.setBackground(rounded(lagModeBtn.getContext(), "#2A2A3E", 9));
+        lagModeBtn.setTextColor(NavyTheme.WHITE);
+        lagModeBtn.setBackground(NavyTheme.bordered(lagModeBtn.getContext(),
+                NavyTheme.NAVY_SURFACE, 10, NavyTheme.NAVY_BORDER));
     }
 
     // ------------------------------------------------------------------
@@ -526,11 +560,12 @@ public class WidgetManager {
     private void applyChipStyle(Button b, boolean on) {
         if (b == null) return;
         if (on) {
-            b.setTextColor(Color.WHITE);
-            b.setBackground(rounded(b.getContext(), "#FF4444", 11));
+            b.setTextColor(NavyTheme.NAVY_PANEL);
+            b.setBackground(NavyTheme.rounded(b.getContext(), NavyTheme.WHITE, 12));
         } else {
-            b.setTextColor(Color.parseColor("#8A8AA0"));
-            b.setBackground(rounded(b.getContext(), "#1A1A28", 11));
+            b.setTextColor(NavyTheme.WHITE);
+            b.setBackground(NavyTheme.bordered(b.getContext(),
+                    NavyTheme.NAVY_SURFACE, 12, NavyTheme.NAVY_BORDER));
         }
     }
 
@@ -552,16 +587,17 @@ public class WidgetManager {
         LinearLayout inner = new LinearLayout(context);
         inner.setGravity(Gravity.CENTER);
         inner.setOrientation(LinearLayout.VERTICAL);
-        inner.setBackground(rounded(context, "#F0141420", 26));
+        inner.setBackground(NavyTheme.bordered(context, NavyTheme.NAVY_PANEL, 28, NavyTheme.NAVY_BORDER));
         TextView x = new TextView(context);
         x.setText("X");
-        x.setTextColor(Color.parseColor("#FF4444"));
+        x.setTextColor(NavyTheme.WHITE);
         x.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
         x.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
         x.setGravity(Gravity.CENTER);
         inner.addView(x);
         pill = inner;
         pill.setOnTouchListener(handleDrag());
+        pill.setOnClickListener(v -> expand());
         pill.setClickable(true);
     }
 
@@ -707,15 +743,7 @@ public class WidgetManager {
     // Helpers
     // ------------------------------------------------------------------
 
-    private GradientDrawable rounded(Context context, String colorHex, int radiusDp) {
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(Color.parseColor(colorHex));
-        g.setCornerRadius(dp(context, radiusDp));
-        return g;
-    }
-
     private static int dp(Context context, int v) {
-        return Math.round(TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, v, context.getResources().getDisplayMetrics()));
+        return NavyTheme.dp(context, v);
     }
 }
