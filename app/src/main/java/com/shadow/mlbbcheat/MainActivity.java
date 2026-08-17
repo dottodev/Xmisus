@@ -44,9 +44,38 @@ public class MainActivity extends Activity {
         try {
             setContentView(buildUi());
             copyAssets();
+            gatePermissions();
         } catch (Throwable t) {
             CrashLog.log("MainActivity.onCreate failed: " + t);
             finish();
+        }
+    }
+
+    private static boolean overlayAsked;
+    private static boolean accessibilityAsked;
+
+    /**
+     * Ask for permissions right after the app opens (before the user can
+     * start the stack). Skipped silently when the grant is already present —
+     * e.g. a parallel app that already carries the permissions.
+     */
+    private void gatePermissions() {
+        if (!PermissionsHelper.hasOverlay(this)) {
+            if (!overlayAsked) {
+                overlayAsked = true;
+                Toast.makeText(this, "Xmisus needs overlay permission - granting now",
+                        Toast.LENGTH_LONG).show();
+                PermissionsHelper.requestOverlay(this);
+            }
+            return;
+        }
+        if (!PermissionsHelper.isAccessibilityEnabled(this)) {
+            if (!accessibilityAsked) {
+                accessibilityAsked = true;
+                Toast.makeText(this, "Xmisus needs accessibility access - enabling now",
+                        Toast.LENGTH_LONG).show();
+                PermissionsHelper.requestAccessibility(this);
+            }
         }
     }
 
@@ -54,7 +83,7 @@ public class MainActivity extends Activity {
     // UI
     // ------------------------------------------------------------------
 
-    private LinearLayout buildUi() {
+    private ScrollView buildUi() {
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(Color.parseColor("#12121C"));
         scroll.setFillViewport(true);
@@ -134,7 +163,7 @@ public class MainActivity extends Activity {
             version.setText("v" + getPackageManager()
                     .getPackageInfo(getPackageName(), 0).versionName);
         } catch (PackageManager.NameNotFoundException e) {
-            version.setText("v1.2.1");
+            version.setText("v1.2.2");
         }
         version.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         version.setTextColor(Color.parseColor("#5A5A70"));
@@ -142,7 +171,7 @@ public class MainActivity extends Activity {
         root.addView(version);
 
         scroll.addView(root);
-        return root;
+        return scroll;
     }
 
     private LinearLayout card(float weight) {
