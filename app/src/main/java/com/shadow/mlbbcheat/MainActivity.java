@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -18,6 +17,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.shadow.mlbbcheat.license.PremiumManager;
+import com.shadow.mlbbcheat.overlay.NavyTheme;
 import com.shadow.mlbbcheat.services.OverlayService;
 import com.shadow.mlbbcheat.services.ScriptService;
 import com.shadow.mlbbcheat.utils.CrashLog;
@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
 
     private ScrollView buildUi() {
         ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Color.parseColor("#12121C"));
+        scroll.setBackground(NavyTheme.navyGradient(NavyTheme.NAVY_SURFACE, NavyTheme.NAVY_BG));
         scroll.setFillViewport(true);
 
         LinearLayout root = new LinearLayout(this);
@@ -89,30 +89,30 @@ public class MainActivity extends Activity {
         logo.setText("X M I S U S");
         logo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 34);
         logo.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
-        logo.setTextColor(Color.parseColor("#FF4444"));
+        logo.setTextColor(NavyTheme.WHITE);
         logo.setLetterSpacing(0.12f);
         root.addView(logo);
 
         TextView tagline = new TextView(this);
         tagline.setText(R.string.tagline);
         tagline.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        tagline.setTextColor(Color.parseColor("#8A8AA0"));
+        tagline.setTextColor(NavyTheme.TEXT_MUTED);
         tagline.setGravity(Gravity.CENTER);
         tagline.setPadding(0, dp(6), 0, dp(28));
         root.addView(tagline);
 
         // ---- Status card ----------------------------------------------
-        LinearLayout card = card(0.92f);
+        LinearLayout card = card();
         status = new TextView(this);
         status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        status.setTextColor(Color.parseColor("#E4E4F0"));
+        status.setTextColor(NavyTheme.WHITE);
         status.setGravity(Gravity.CENTER);
         status.setPadding(dp(12), dp(10), dp(12), dp(10));
         card.addView(status);
 
         tierLine = new TextView(this);
         tierLine.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        tierLine.setTextColor(Color.parseColor("#8A8AA0"));
+        tierLine.setTextColor(NavyTheme.TEXT_MUTED);
         tierLine.setGravity(Gravity.CENTER);
         tierLine.setPadding(dp(12), 0, dp(12), dp(10));
         card.addView(tierLine);
@@ -120,31 +120,31 @@ public class MainActivity extends Activity {
 
         // ---- Controls ---------------------------------------------------
         startButton = button("START", true);
-        startButton.setTextColor(Color.WHITE);
-        startButton.setBackground(rounded("#3DDC84", 18));
+        startButton.setTextColor(NavyTheme.NAVY_PANEL);
+        startButton.setBackground(rounded(NavyTheme.WHITE, 18));
         startButton.setOnClickListener(v -> startStack());
         root.addView(startButton);
 
         stopButton = button("STOP", false);
-        stopButton.setTextColor(Color.WHITE);
-        stopButton.setBackground(rounded("#FF4444", 18));
+        stopButton.setTextColor(NavyTheme.WHITE);
+        stopButton.setBackground(rounded(NavyTheme.NAVY_SURFACE, 18));
         stopButton.setOnClickListener(v -> stopStack());
         root.addView(stopButton);
 
         // ---- About ------------------------------------------------------
-        LinearLayout aboutCard = card(0.92f);
+        LinearLayout aboutCard = card();
         TextView aboutTitle = new TextView(this);
         aboutTitle.setText("ABOUT XMISUS");
         aboutTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         aboutTitle.setTypeface(Typeface.DEFAULT_BOLD);
-        aboutTitle.setTextColor(Color.parseColor("#FF4444"));
+        aboutTitle.setTextColor(NavyTheme.WHITE);
         aboutTitle.setPadding(dp(12), dp(12), dp(12), dp(4));
         aboutCard.addView(aboutTitle);
 
         TextView about = new TextView(this);
         about.setText(R.string.about_xmisus);
         about.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        about.setTextColor(Color.parseColor("#B8B8CC"));
+        about.setTextColor(NavyTheme.TEXT_MUTED);
         about.setLineSpacing(0f, 1.25f);
         about.setPadding(dp(12), 0, dp(12), dp(14));
         aboutCard.addView(about);
@@ -155,10 +155,10 @@ public class MainActivity extends Activity {
             version.setText("v" + getPackageManager()
                     .getPackageInfo(getPackageName(), 0).versionName);
         } catch (PackageManager.NameNotFoundException e) {
-            version.setText("v1.3.0");
+            version.setText("v1.4.0");
         }
         version.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        version.setTextColor(Color.parseColor("#5A5A70"));
+        version.setTextColor(NavyTheme.TEXT_DIM);
         version.setPadding(0, dp(20), 0, 0);
         root.addView(version);
 
@@ -166,10 +166,10 @@ public class MainActivity extends Activity {
         return scroll;
     }
 
-    private LinearLayout card(float weight) {
+    private LinearLayout card() {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(rounded("#1E1E2E", 16));
+        card.setBackground(NavyTheme.bordered(this, NavyTheme.NAVY_PANEL, 18, NavyTheme.NAVY_BORDER));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = dp(6);
@@ -185,22 +185,18 @@ public class MainActivity extends Activity {
         b.setTextSize(TypedValue.COMPLEX_UNIT_SP, big ? 16 : 15);
         b.setTypeface(Typeface.DEFAULT_BOLD);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(big ? 52 : 48));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(big ? 56 : 52));
         lp.topMargin = dp(10);
         b.setLayoutParams(lp);
         return b;
     }
 
-    private GradientDrawable rounded(String colorHex, int radiusDp) {
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(Color.parseColor(colorHex));
-        g.setCornerRadius(dp(radiusDp));
-        return g;
+    private GradientDrawable rounded(int color, int radiusDp) {
+        return NavyTheme.rounded(this, color, radiusDp);
     }
 
     private int dp(int v) {
-        return Math.round(TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, v, getResources().getDisplayMetrics()));
+        return NavyTheme.dp(this, v);
     }
 
     // ------------------------------------------------------------------
@@ -257,6 +253,8 @@ public class MainActivity extends Activity {
         boolean running = stackRunning();
         startButton.setEnabled(!running);
         stopButton.setEnabled(running);
+        startButton.setAlpha(running ? 0.45f : 1f);
+        stopButton.setAlpha(running ? 1f : 0.45f);
 
         StringBuilder sb = new StringBuilder();
         sb.append("Overlay permission: ")
@@ -266,10 +264,10 @@ public class MainActivity extends Activity {
 
         if (PremiumManager.isPremiumActive(this)) {
             tierLine.setText("Tier: PREMIUM");
-            tierLine.setTextColor(Color.parseColor("#3DDC84"));
+            tierLine.setTextColor(NavyTheme.WHITE);
         } else {
             tierLine.setText("Tier: FREE");
-            tierLine.setTextColor(Color.parseColor("#8A8AA0"));
+            tierLine.setTextColor(NavyTheme.TEXT_MUTED);
         }
     }
 
