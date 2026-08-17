@@ -1,0 +1,4 @@
+[mlbb-cheat-server] listening on http://0.0.0.0:8080
+  admin site:  http://localhost:8080/admin.html
+  admin pass:  cd3251bd   (set ADMIN_PASSWORD env to change)
+  database:    C:\Users\mitra\OneDrive\Desktop\projects\Xmisus\server\data.db

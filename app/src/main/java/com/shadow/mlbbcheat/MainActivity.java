@@ -43,8 +43,9 @@ import java.io.OutputStream;
  */
 public class MainActivity extends Activity {
 
-    // TEST ad unit IDs — replace with real ones before release
-    private static final String BANNER_UNIT_ID = "ca-app-pub-3940256099942544/6300978111";
+    // REAL banner ad unit — "Justbanner"
+    private static final String BANNER_UNIT_ID = "ca-app-pub-4329211165914357/5516255369";
+    // Test rewarded unit — replace with a real rewarded unit when created
     private static final String REWARDED_UNIT_ID = "ca-app-pub-3940256099942544/5224354917";
     private static final long AD_PREMIUM_MS = 60L * 60 * 1000; // 1h per ad
 
