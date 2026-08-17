@@ -2,6 +2,7 @@ package com.shadow.mlbbcheat.utils.bypass;
 
 import android.content.Context;
 
+import com.shadow.mlbbcheat.memory.GameOffsets;
 import com.shadow.mlbbcheat.memory.OffsetRepository;
 import com.shadow.mlbbcheat.models.PlayerData;
 
@@ -49,6 +50,7 @@ public final class BypassStack {
     public final IdentityShield identityShield;
     public final StatsCloak statsCloak;
     public final UpdateGuard updateGuard;
+    public final EnemyLag enemyLag;
 
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean hardStopFlag = new AtomicBoolean(false);
@@ -73,6 +75,11 @@ public final class BypassStack {
         }
     }
 
+    /** Test hook: feed a real offset table so EnemyLag gates pass. */
+    void injectOffsetsForTest(String json) {
+        offsets.applyServerUpdate(context, json);
+    }
+
     private BypassStack(Context context) {
         this.context = context.getApplicationContext();
         this.offsets = new OffsetRepository(this.context);
@@ -84,6 +91,22 @@ public final class BypassStack {
         this.identityShield = new IdentityShield(this.context);
         this.statsCloak = new StatsCloak();
         this.updateGuard = new UpdateGuard(this.context, this.offsets);
+        this.enemyLag = new EnemyLag(this);
+    }
+
+    // ------------------------------------------------------------------
+    // Package-private accessors used by EnemyLag gates
+    // ------------------------------------------------------------------
+
+    /** True when the active offset table is real (not placeholder/zero). */
+    boolean offsetsReady() {
+        GameOffsets.OffsetSet s = offsets.getActive();
+        return s != null && s.enemyBase > 0 && s.playerSize > 0;
+    }
+
+    /** True once the stack has hard-stopped (kill drain/crash loop). */
+    boolean stackHardStopped() {
+        return hardStopFlag.get();
     }
 
     // ------------------------------------------------------------------
@@ -110,11 +133,13 @@ public final class BypassStack {
         honeypotGuard.noteMatchStart();
         behaviorCloak.beginSession();
         scanShield.noteSessionStart();
+        enemyLag.onMatchStart();
     }
 
     public void onMatchEnd(boolean won) {
         statsCloak.endMatch(won);
         behaviorCloak.beginSession();
+        enemyLag.onMatchEnd(won);
     }
 
     public void onKill() {
@@ -224,6 +249,7 @@ public final class BypassStack {
             }
         }
         updateGuard.versionChanged();
+        enemyLag.tick(now);
     }
 
     // ------------------------------------------------------------------
@@ -255,10 +281,12 @@ public final class BypassStack {
         if (hardStopFlag.get()) return true;
         if (networkShield.killDrainComplete()) {
             hardStopFlag.set(true);
+            enemyLag.forceStop();
             return true;
         }
         if (updateGuard.crashLoop()) {
             hardStopFlag.set(true);
+            enemyLag.forceStop();
             return true;
         }
         return false;

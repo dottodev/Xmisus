@@ -16,40 +16,29 @@ import com.shadow.mlbbcheat.utils.BehaviorMimic;
 import java.util.List;
 
 /**
- * Accessibility automation: auto-retribution + aim-assist.
- *
- * Retribution (jungle smite) timing:
- *   - reads the target's HP from the bridge data
- *   - if HP is inside kill range for the current level, taps the retri
- *     button with human jitter + reaction delay
+ * Accessibility automation: aim assist only (auto-retribution removed).
  *
  * Aim assist:
- *   - when a widget toggle enables it, every poll picks the best target via
- *     {@link AimEngine.selectTarget} and drags the skill joystick toward the
- *     projected screen point with leading + human error.
+ *   - when the widget toggle enables it, every poll picks the best target
+ *     via {@link AimEngine.selectTarget} and drags the skill joystick
+ *     toward the projected screen point with leading + human error.
  *
  * Everything is dispatched through accessibility gestures so no root and no
  * injected input manager is needed, and every dispatch is randomized.
+ *
+ * NOTE: this service is NOT requested at launch anymore; it only runs if
+ * the user enables the accessibility permission manually.
  */
 public class AutoRetriService extends AccessibilityService {
-
-    // Retribution button (bottom-center skill slot), landscape MLBB layout
-    private static final float RETRI_BTN_X = 900f;
-    private static final float RETRI_BTN_Y = 1800f;
-    private static final float RETRI_TAP_RANGE_PX = 14f;
 
     // Skill aim joystick origin + radius (drag vector space)
     private static final float SKILL_STICK_X = 150f;
     private static final float SKILL_STICK_Y = 1800f;
     private static final float SKILL_STICK_RADIUS_PX = 110f;
 
-    // Retribution damage model: base + per-level scaling
-    private static final float RETRI_BASE_DAMAGE = 500f;
-    private static final float RETRI_LEVEL_SCALE = 50f;
-    private static final float RETRI_SAFETY_MARGIN = 1.1f;
-
     private final Handler handler = new Handler(Looper.getMainLooper());
     private volatile boolean aimEnabled = false;
+    private volatile float aimSensitivity = 1.0f;
     private long lastAimAt = 0L;
 
     @Override
@@ -59,15 +48,6 @@ public class AutoRetriService extends AccessibilityService {
             List<PlayerData> players = receiver.getPlayers();
             if (players == null || players.isEmpty()) return;
 
-            float playerLevel = receiver.getPlayerLevel();
-
-            // --- Retribution -------------------------------------------------
-            PlayerData retriTarget = findRetriTarget(players);
-            if (retriTarget != null && shouldUseRetribution(retriTarget.hp, Math.round(playerLevel))) {
-                scheduleRetriTap();
-            }
-
-            // --- Aim assist --------------------------------------------------
             if (aimEnabled && System.currentTimeMillis() - lastAimAt > 220L) {
                 scheduleAimDrag(players);
             }
@@ -81,37 +61,6 @@ public class AutoRetriService extends AccessibilityService {
     }
 
     // ------------------------------------------------------------------
-    // Retribution
-    // ------------------------------------------------------------------
-
-    private PlayerData findRetriTarget(List<PlayerData> players) {
-        for (PlayerData p : players) {
-            if (p.isEnemy && p.isAlive()
-                    && p.distanceTo(0f, 0f) < 450f) {
-                return p;
-            }
-        }
-        return null;
-    }
-
-    static float retriDamageForLevel(int level) {
-        return RETRI_BASE_DAMAGE + level * RETRI_LEVEL_SCALE;
-    }
-
-    static boolean shouldUseRetribution(float targetHp, int level) {
-        return targetHp > 0f
-                && targetHp <= retriDamageForLevel(level) * RETRI_SAFETY_MARGIN;
-    }
-
-    private void scheduleRetriTap() {
-        if (BehaviorMimic.decidesToSkip()) return;
-        long delay = BehaviorMimic.reactionDelayMs();
-        final float x = RETRI_BTN_X + BehaviorMimic.tapJitterPx(RETRI_TAP_RANGE_PX);
-        final float y = RETRI_BTN_Y + BehaviorMimic.tapJitterPx(RETRI_TAP_RANGE_PX);
-        handler.postDelayed(() -> dispatchTap(x, y, 60), delay);
-    }
-
-    // ------------------------------------------------------------------
     // Aim assist
     // ------------------------------------------------------------------
 
@@ -119,7 +68,7 @@ public class AutoRetriService extends AccessibilityService {
         if (BehaviorMimic.decidesToSkip()) return;
         AimEngine.Target target = AimEngine.selectTarget(
                 players, 0f, 0f, 2.0f,
-                retriDamageForLevel(Math.round(DataReceiver.getInstance().getPlayerLevel())),
+                0f,
                 AimEngine.MAX_AIM_RANGE_WORLD);
         if (target == null) return;
 
@@ -131,8 +80,8 @@ public class AutoRetriService extends AccessibilityService {
 
         final float fromX = SKILL_STICK_X;
         final float fromY = SKILL_STICK_Y;
-        final float toX = fromX + drag[0];
-        final float toY = fromY + drag[1];
+        final float toX = fromX + drag[0] * aimSensitivity;
+        final float toY = fromY + drag[1] * aimSensitivity;
         lastAimAt = System.currentTimeMillis();
 
         handler.postDelayed(() -> dispatchDrag(fromX, fromY, toX, toY, 90), delay);
@@ -141,15 +90,6 @@ public class AutoRetriService extends AccessibilityService {
     // ------------------------------------------------------------------
     // Gesture dispatch
     // ------------------------------------------------------------------
-
-    private void dispatchTap(float x, float y, long durationMs) {
-        Path path = new Path();
-        path.moveTo(x, y);
-        GestureDescription gesture = new GestureDescription.Builder()
-                .addStroke(new GestureDescription.StrokeDescription(path, 0, durationMs))
-                .build();
-        dispatchGesture(gesture, null, null);
-    }
 
     private void dispatchDrag(float fromX, float fromY, float toX, float toY, long durationMs) {
         Path path = new Path();
@@ -167,6 +107,15 @@ public class AutoRetriService extends AccessibilityService {
 
     public void setAimEnabled(boolean enabled) {
         this.aimEnabled = enabled;
+    }
+
+    /** Drag-distance multiplier (settings slider, 0.5x–2.0x). */
+    public void setAimSensitivity(float sensitivity) {
+        this.aimSensitivity = Math.max(0.3f, Math.min(3f, sensitivity));
+    }
+
+    public float aimSensitivity() {
+        return aimSensitivity;
     }
 
     public static AutoRetriService getInstance() {

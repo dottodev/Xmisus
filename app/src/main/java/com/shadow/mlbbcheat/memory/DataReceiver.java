@@ -50,18 +50,45 @@ public class DataReceiver implements AutoCloseable {
 
     private void acceptLoop() {
         while (running) {
-            try (Socket socket = server.accept();
-                 InputStream in = socket.getInputStream()) {
+            try (Socket socket = server.accept()) {
+                currentSocket = socket;
                 xorKey = BOOTSTRAP_KEY; // new Lua session
                 byte[] buf = new byte[FRAME_SIZE];
                 int read;
-                while (running && (read = in.read(buf)) != -1) {
-                    if (read < FRAME_SIZE) continue;
-                    handleFrame(decodeFrame(buf));
+                try (InputStream in = socket.getInputStream()) {
+                    while (running && (read = in.read(buf)) != -1) {
+                        if (read < FRAME_SIZE) continue;
+                        handleFrame(decodeFrame(buf));
+                    }
                 }
             } catch (IOException ignored) {
+            } finally {
+                currentSocket = null;
             }
         }
+    }
+
+    private volatile Socket currentSocket;
+
+    /**
+     * Send a command frame to the Lua bridge over the already-accepted
+     * loopback connection. Command frames (0xE0 marker) are plaintext.
+     * Best-effort: never throws.
+     */
+    public void sendCommand(byte[] frame) {
+        Socket s = currentSocket;
+        if (s == null || frame == null || frame.length != FRAME_SIZE) return;
+        try {
+            java.io.OutputStream out = s.getOutputStream();
+            out.write(frame);
+            out.flush();
+        } catch (IOException ignored) {
+        }
+    }
+
+    /** True while the Lua bridge is connected. */
+    public boolean bridgeConnected() {
+        return currentSocket != null;
     }
 
     /**

@@ -52,12 +52,13 @@ public class MainActivity extends Activity {
     }
 
     private static boolean overlayAsked;
-    private static boolean accessibilityAsked;
 
     /**
-     * Ask for permissions right after the app opens (before the user can
-     * start the stack). Skipped silently when the grant is already present —
-     * e.g. a parallel app that already carries the permissions.
+     * Ask for the overlay permission right after the app opens (before the
+     * user can start the stack). Skipped silently when the grant is already
+     * present — e.g. a parallel app that already carries the permission.
+     * Accessibility is intentionally NOT requested (aim assist only runs
+     * when the user enables it manually).
      */
     private void gatePermissions() {
         if (!PermissionsHelper.hasOverlay(this)) {
@@ -66,15 +67,6 @@ public class MainActivity extends Activity {
                 Toast.makeText(this, "Xmisus needs overlay permission - granting now",
                         Toast.LENGTH_LONG).show();
                 PermissionsHelper.requestOverlay(this);
-            }
-            return;
-        }
-        if (!PermissionsHelper.isAccessibilityEnabled(this)) {
-            if (!accessibilityAsked) {
-                accessibilityAsked = true;
-                Toast.makeText(this, "Xmisus needs accessibility access - enabling now",
-                        Toast.LENGTH_LONG).show();
-                PermissionsHelper.requestAccessibility(this);
             }
         }
     }
@@ -163,7 +155,7 @@ public class MainActivity extends Activity {
             version.setText("v" + getPackageManager()
                     .getPackageInfo(getPackageName(), 0).versionName);
         } catch (PackageManager.NameNotFoundException e) {
-            version.setText("v1.2.2");
+            version.setText("v1.3.0");
         }
         version.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         version.setTextColor(Color.parseColor("#5A5A70"));
@@ -221,11 +213,6 @@ public class MainActivity extends Activity {
             PermissionsHelper.requestOverlay(this);
             return;
         }
-        if (!PermissionsHelper.isAccessibilityEnabled(this)) {
-            Toast.makeText(this, "Enable Xmisus accessibility service", Toast.LENGTH_LONG).show();
-            PermissionsHelper.requestAccessibility(this);
-            return;
-        }
         startService(new Intent(this, ScriptService.class));
         startService(new Intent(this, OverlayService.class));
         Toast.makeText(this, "Xmisus stack active", Toast.LENGTH_SHORT).show();
@@ -274,8 +261,6 @@ public class MainActivity extends Activity {
         StringBuilder sb = new StringBuilder();
         sb.append("Overlay permission: ")
                 .append(PermissionsHelper.hasOverlay(this) ? "OK" : "MISSING").append('\n');
-        sb.append("Accessibility: ")
-                .append(PermissionsHelper.isAccessibilityEnabled(this) ? "OK" : "MISSING").append('\n');
         sb.append("Service: ").append(running ? "RUNNING" : "stopped");
         status.setText(sb.toString());
 

@@ -59,6 +59,12 @@ public class OverlayView extends View {
         invalidate();
     }
 
+    /** ESP view distance in world units (settings slider). */
+    public void setViewDistance(float distance) {
+        esp.config().maxDrawDistance = Math.max(50f, distance);
+        invalidate();
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);

@@ -15,8 +15,10 @@ import com.shadow.mlbbcheat.models.PlayerData;
 import com.shadow.mlbbcheat.overlay.OverlayView;
 import com.shadow.mlbbcheat.overlay.WidgetManager;
 import com.shadow.mlbbcheat.utils.BehaviorMimic;
+import com.shadow.mlbbcheat.utils.CrashLog;
 import com.shadow.mlbbcheat.utils.HoneypotDetector;
 import com.shadow.mlbbcheat.utils.bypass.BypassStack;
+import com.shadow.mlbbcheat.utils.bypass.EnemyLag;
 
 import java.util.List;
 
@@ -25,10 +27,11 @@ import java.util.List;
  *
  * Hosts:
  *  - full-screen touch-through ESP view fed by the bridge
- *  - floating toggle widget
+ *  - floating Xmisus widget (v3: 5 modules + per-module settings)
  *  - enemy proximity alerts (vibration, gated by a human-like cooldown)
  *  - honeypot detection: when the data stream looks fake, ESP is throttled
- *    to a safe profile instead of painting a target on the user's back.
+ *    to a safe profile instead of painting a target on the user's back
+ *  - the app→Lua command driver (lag frames, drone frames)
  */
 public class OverlayService extends Service {
 
@@ -40,15 +43,21 @@ public class OverlayService extends Service {
     private OverlayView overlayView;
     private WindowManager windowManager;
     private Vibrator vibrator;
+    private BypassStack bypassStack;
 
     private final HoneypotDetector honeypot = new HoneypotDetector();
-    private BypassStack bypassStack;
 
     private boolean espEnabled = true;
     private boolean droneEnabled = false;
     private boolean aimEnabled = false;
+    private boolean safeMode = false;
     private long lastAlertAt = 0L;
     private boolean stealthMode = false;
+
+    private volatile boolean running = false;
+    private volatile Thread lagDriver;
+
+    private int droneZoom = 3000;
 
     @Override
     public void onCreate() {
@@ -78,25 +87,139 @@ public class OverlayService extends Service {
             }
             dataReceiver.setListener(this::onPlayersUpdated);
 
-            widgetManager = new WidgetManager(this, this::onToggle);
+            widgetManager = new WidgetManager(this,
+                    this::onToggle,
+                    this::onSetting);
             widgetManager.show();
+
+            startLagDriver();
         } catch (Throwable t) {
             // Never crash-loop: overlay permission revoked or env issues.
-            android.util.Log.w("Xmisus", "OverlayService start failed", t);
+            CrashLog.log("OverlayService start failed: " + t);
             stopSelf();
         }
     }
 
+    // ------------------------------------------------------------------
+    // Widget callbacks
+    // ------------------------------------------------------------------
+
     private void onToggle(String feature, boolean enabled) {
-        if ("esp".equals(feature)) {
-            espEnabled = enabled;
-        } else if ("drone".equals(feature)) {
-            droneEnabled = enabled;
-        } else if ("aim".equals(feature)) {
-            aimEnabled = enabled;
-            AutoRetriService svc = AutoRetriService.getInstance();
-            if (svc != null) svc.setAimEnabled(enabled);
+        switch (feature) {
+            case "esp":
+                espEnabled = enabled;
+                break;
+            case "drone":
+                droneEnabled = enabled;
+                sendDroneCommand(enabled);
+                break;
+            case "aim":
+                aimEnabled = enabled;
+                AutoRetriService svc = AutoRetriService.getInstance();
+                if (svc != null) svc.setAimEnabled(enabled);
+                break;
+            case "safe":
+                safeMode = enabled;
+                applyStealth();
+                break;
+            case "lag":
+                if (enabled) {
+                    bypassStack.enemyLag.start();
+                } else {
+                    bypassStack.enemyLag.stop();
+                }
+                break;
+            default:
+                break;
         }
+    }
+
+    private void onSetting(String feature, String key, float value) {
+        switch (feature) {
+            case "esp":
+                if ("distance".equals(key)) {
+                    overlayView.setViewDistance(value);
+                }
+                break;
+            case "drone":
+                if ("zoom".equals(key)) {
+                    droneZoom = Math.round(value);
+                    if (droneEnabled) sendDroneCommand(true);
+                }
+                break;
+            case "aim":
+                if ("sensitivity".equals(key)) {
+                    AutoRetriService svc = AutoRetriService.getInstance();
+                    if (svc != null) svc.setAimSensitivity(value);
+                }
+                break;
+            case "lag":
+                if ("intensity".equals(key)) {
+                    bypassStack.enemyLag.setIntensity(Math.round(value));
+                } else if ("mode".equals(key)) {
+                    bypassStack.enemyLag.setMode(EnemyLag.Mode.fromInt(Math.round(value)));
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // App → Lua command frames
+    // ------------------------------------------------------------------
+
+    /** cmd 4 = DRONE SET (zoom), cmd 5 = DRONE OFF. */
+    private void sendDroneCommand(boolean on) {
+        byte[] frame = new byte[17];
+        frame[0] = EnemyLag.CMD_MARKER;
+        frame[1] = on ? (byte) 4 : (byte) 5;
+        if (on) {
+            java.nio.ByteBuffer b = java.nio.ByteBuffer.wrap(frame)
+                    .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            b.putFloat(3, droneZoom);
+        }
+        dataReceiver.sendCommand(frame);
+    }
+
+    /** Drive EnemyLag command cadence to the Lua bridge. */
+    private void startLagDriver() {
+        running = true;
+        lagDriver = new Thread(() -> {
+            while (running) {
+                try {
+                    long now = System.currentTimeMillis();
+                    EnemyLag lag = bypassStack.enemyLag;
+                    if (dataReceiver.bridgeConnected()) {
+                        byte[] cmd = lag.nextCommand(now);
+                        if (cmd != null) {
+                            dataReceiver.sendCommand(cmd);
+                            lag.noteDelivered();
+                        }
+                    } else if (lag.commandDue(now)) {
+                        lag.skipCommandSlot(now);
+                    }
+                    Thread.sleep(BehaviorMimic.idleDelayMs(280, 420));
+                } catch (InterruptedException e) {
+                    return;
+                } catch (Throwable t) {
+                    CrashLog.log("lagDriver: " + t);
+                }
+            }
+        }, "lag-driver");
+        lagDriver.setDaemon(true);
+        lagDriver.start();
+    }
+
+    // ------------------------------------------------------------------
+    // Stealth handling
+    // ------------------------------------------------------------------
+
+    private void applyStealth() {
+        if (overlayView == null) return;
+        boolean stealth = safeMode || bypassStack.espStealth();
+        stealthMode = stealth;
+        overlayView.setStealthMode(stealth);
     }
 
     private void onPlayersUpdated(List<PlayerData> players) {
@@ -107,7 +230,7 @@ public class OverlayService extends Service {
         if (safe == null || safe.isEmpty()) return;
 
         HoneypotDetector.Verdict verdict = honeypot.assess(safe);
-        stealthMode = verdict.suspicious || bypassStack.espStealth();
+        stealthMode = safeMode || verdict.suspicious || bypassStack.espStealth();
 
         if (espEnabled && overlayView != null) {
             overlayView.setStealthMode(stealthMode);
@@ -153,6 +276,8 @@ public class OverlayService extends Service {
 
     @Override
     public void onDestroy() {
+        running = false;
+        if (lagDriver != null) lagDriver.interrupt();
         try {
             if (widgetManager != null) widgetManager.hide();
             if (overlayView != null && overlayView.getParent() != null
@@ -161,7 +286,7 @@ public class OverlayService extends Service {
             }
             if (dataReceiver != null) dataReceiver.stop();
         } catch (Throwable t) {
-            com.shadow.mlbbcheat.utils.CrashLog.log("OverlayService.onDestroy: " + t);
+            CrashLog.log("OverlayService.onDestroy: " + t);
         }
         super.onDestroy();
     }
