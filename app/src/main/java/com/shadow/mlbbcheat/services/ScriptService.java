@@ -34,23 +34,28 @@ public class ScriptService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        startWatchdogIfNeeded();
+        try {
+            startWatchdogIfNeeded();
 
-        BypassStack stack = BypassStack.getInstance(this);
-        stack.onStart();
+            BypassStack stack = BypassStack.getInstance(this);
+            stack.onStart();
 
-        watcher = new Thread(this::watchLoop, "script-watcher");
-        watcher.setDaemon(true);
-        watcher.start();
+            watcher = new Thread(this::watchLoop, "script-watcher");
+            watcher.setDaemon(true);
+            watcher.start();
 
-        heartbeatThread = new Thread(this::heartbeatLoop, "heartbeat");
-        heartbeatThread.setDaemon(true);
-        heartbeatThread.start();
+            heartbeatThread = new Thread(this::heartbeatLoop, "heartbeat");
+            heartbeatThread.setDaemon(true);
+            heartbeatThread.start();
 
-        tickThread = new Thread(this::tickLoop, "bypass-tick");
-        tickThread.setDaemon(true);
-        tickThread.start();
-
+            tickThread = new Thread(this::tickLoop, "bypass-tick");
+            tickThread.setDaemon(true);
+            tickThread.start();
+        } catch (Throwable t) {
+            // Never crash-loop: log and degrade to nothing instead.
+            android.util.Log.w("Xmisus", "ScriptService start failed", t);
+            stopSelf();
+        }
         return START_STICKY;
     }
 

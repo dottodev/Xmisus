@@ -56,10 +56,11 @@ public class AimEngineTest {
     @Test
     public void skillDragVector_pointsTowardTarget() {
         float[] drag = AimEngine.skillDragVector(0f, 0f, 500f, 0f, 100f);
-        // magnitude = aim radius + human-error noise (capped per axis)
-        assertTrue("x=" + drag[0], drag[0] > 90f);
-        assertTrue("x=" + drag[0], drag[0] < 115f);
-        assertTrue("y=" + drag[1], Math.abs(drag[1]) <= 15f);
+        // magnitude = aim radius + human-error noise; noise is clamped per
+        // axis to AIM_MAX_PX (22px), so x lands in (78, 122) and y in [-22, 22]
+        assertTrue("x=" + drag[0], drag[0] > 78f);
+        assertTrue("x=" + drag[0], drag[0] < 122f);
+        assertTrue("y=" + drag[1], Math.abs(drag[1]) <= 22f);
     }
 
     @Test

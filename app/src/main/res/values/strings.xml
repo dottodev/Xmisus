@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">MLBB Cheat</string>
+    <string name="app_name">Xmisus</string>
+    <string name="tagline">Stealth ESP &amp; assist for MLBB</string>
+    <string name="about_xmisus">Xmisus is a stealth overlay suite for Mobile Legends: Bang Bang. It brings ESP, auto-retribution and aim assist with a human-like anti-detection stack built in. Runs inside your parallel app — no root required.</string>
 </resources>

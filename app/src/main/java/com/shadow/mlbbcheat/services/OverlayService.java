@@ -32,7 +32,7 @@ import java.util.List;
  */
 public class OverlayService extends Service {
 
-    private static final String CHANNEL_ID = "mlbb_cheat_overlay";
+    private static final String CHANNEL_ID = "xmisus_overlay";
     private static final long ALERT_MIN_INTERVAL_MS = 900;
 
     private DataReceiver dataReceiver;
@@ -53,32 +53,38 @@ public class OverlayService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        startForeground(1, buildNotification());
-        windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-
-        bypassStack = BypassStack.getInstance(this);
-        bypassStack.onStart();
-
-        overlayView = new OverlayView(this);
-        WindowManager.LayoutParams overlayParams = new WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-                PixelFormat.TRANSLUCENT);
-        windowManager.addView(overlayView, overlayParams);
-
-        dataReceiver = DataReceiver.getInstance();
         try {
-            dataReceiver.start();
-        } catch (Exception ignored) {
-        }
-        dataReceiver.setListener(this::onPlayersUpdated);
+            startForeground(1, buildNotification());
+            windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+            vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 
-        widgetManager = new WidgetManager(this, this::onToggle);
-        widgetManager.show();
+            bypassStack = BypassStack.getInstance(this);
+            bypassStack.onStart();
+
+            overlayView = new OverlayView(this);
+            WindowManager.LayoutParams overlayParams = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                    PixelFormat.TRANSLUCENT);
+            windowManager.addView(overlayView, overlayParams);
+
+            dataReceiver = DataReceiver.getInstance();
+            try {
+                dataReceiver.start();
+            } catch (Exception ignored) {
+            }
+            dataReceiver.setListener(this::onPlayersUpdated);
+
+            widgetManager = new WidgetManager(this, this::onToggle);
+            widgetManager.show();
+        } catch (Throwable t) {
+            // Never crash-loop: overlay permission revoked or env issues.
+            android.util.Log.w("Xmisus", "OverlayService start failed", t);
+            stopSelf();
+        }
     }
 
     private void onToggle(String feature, boolean enabled) {
@@ -125,11 +131,11 @@ public class OverlayService extends Service {
 
     private Notification buildNotification() {
         NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID, "Overlay", NotificationManager.IMPORTANCE_LOW);
+                CHANNEL_ID, "Xmisus overlay", NotificationManager.IMPORTANCE_LOW);
         NotificationManager nm = getSystemService(NotificationManager.class);
         nm.createNotificationChannel(channel);
         return new Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("MLBB Cheat")
+                .setContentTitle("Xmisus")
                 .setContentText("Overlay active")
                 .setSmallIcon(android.R.drawable.ic_menu_view)
                 .build();

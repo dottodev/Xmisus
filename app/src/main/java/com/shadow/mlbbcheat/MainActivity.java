@@ -1,140 +1,173 @@
 package com.shadow.mlbbcheat;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.content.Intent;
-import android.os.Build;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.ads.AdSize;
-import com.google.android.gms.ads.AdView;
-import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.rewarded.RewardedAd;
-import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
-import com.shadow.mlbbcheat.license.KeyManager;
 import com.shadow.mlbbcheat.license.PremiumManager;
-import com.shadow.mlbbcheat.memory.OffsetRepository;
-import com.shadow.mlbbcheat.net.ServerClient;
 import com.shadow.mlbbcheat.services.OverlayService;
 import com.shadow.mlbbcheat.services.ScriptService;
-import com.shadow.mlbbcheat.utils.Crypto;
 import com.shadow.mlbbcheat.utils.PermissionsHelper;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-
 /**
- * Launcher + permission hub + key redemption + ads.
+ * Xmisus launcher.
  *
- * Free tier: ESP, map hack, enemy alert, auto-retri.
- * Premium (key or ad-rewarded): drone view + aim assist.
+ * Minimal by design: START / STOP the cheat stack and brand info.
+ * START requests the overlay + accessibility permissions it needs, then
+ * boots both services. Buttons are gated on the running state.
  */
 public class MainActivity extends Activity {
 
-    // REAL banner ad unit — "Justbanner"
-    private static final String BANNER_UNIT_ID = "ca-app-pub-4329211165914357/5516255369";
-    // Test rewarded unit — replace with a real rewarded unit when created
-    private static final String REWARDED_UNIT_ID = "ca-app-pub-3940256099942544/5224354917";
-    private static final long AD_PREMIUM_MS = 60L * 60 * 1000; // 1h per ad
-
+    private Button startButton;
+    private Button stopButton;
     private TextView status;
-    private TextView premiumStatus;
-    private EditText keyInput;
-    private AdView banner;
-    private RewardedAd rewardedAd;
+    private TextView tierLine;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(buildUi());
         copyAssets();
-        initAds();
     }
+
+    // ------------------------------------------------------------------
+    // UI
+    // ------------------------------------------------------------------
 
     private LinearLayout buildUi() {
         ScrollView scroll = new ScrollView(this);
+        scroll.setBackgroundColor(Color.parseColor("#12121C"));
+        scroll.setFillViewport(true);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        int pad = dp(16);
-        root.setPadding(pad, pad, pad, pad);
+        root.setPadding(dp(24), dp(48), dp(24), dp(24));
 
+        TextView logo = new TextView(this);
+        logo.setText("X M I S U S");
+        logo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 34);
+        logo.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
+        logo.setTextColor(Color.parseColor("#FF4444"));
+        logo.setLetterSpacing(0.12f);
+        root.addView(logo);
+
+        TextView tagline = new TextView(this);
+        tagline.setText(R.string.tagline);
+        tagline.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        tagline.setTextColor(Color.parseColor("#8A8AA0"));
+        tagline.setGravity(Gravity.CENTER);
+        tagline.setPadding(0, dp(6), 0, dp(28));
+        root.addView(tagline);
+
+        // ---- Status card ----------------------------------------------
+        LinearLayout card = card(0.92f);
         status = new TextView(this);
-        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        status.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        status.setTextColor(Color.parseColor("#E4E4F0"));
         status.setGravity(Gravity.CENTER);
-        status.setText("—");
-        root.addView(status);
+        status.setPadding(dp(12), dp(10), dp(12), dp(10));
+        card.addView(status);
 
-        premiumStatus = new TextView(this);
-        premiumStatus.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        premiumStatus.setGravity(Gravity.CENTER);
-        root.addView(premiumStatus);
+        tierLine = new TextView(this);
+        tierLine.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        tierLine.setTextColor(Color.parseColor("#8A8AA0"));
+        tierLine.setGravity(Gravity.CENTER);
+        tierLine.setPadding(dp(12), 0, dp(12), dp(10));
+        card.addView(tierLine);
+        root.addView(card);
 
-        // ---- Key redemption -------------------------------------------
-        TextView keyLabel = new TextView(this);
-        keyLabel.setText("Enter activation key");
-        root.addView(keyLabel);
+        // ---- Controls ---------------------------------------------------
+        startButton = button("START", true);
+        startButton.setTextColor(Color.WHITE);
+        startButton.setBackground(rounded("#3DDC84", 18));
+        startButton.setOnClickListener(v -> startStack());
+        root.addView(startButton);
 
-        keyInput = new EditText(this);
-        keyInput.setHint("XXXX-XXXX-XXXX-XXXX");
-        keyInput.setSingleLine(true);
-        root.addView(keyInput);
+        stopButton = button("STOP", false);
+        stopButton.setTextColor(Color.WHITE);
+        stopButton.setBackground(rounded("#FF4444", 18));
+        stopButton.setOnClickListener(v -> stopStack());
+        root.addView(stopButton);
 
-        root.addView(button("Redeem key", this::redeemKey));
+        // ---- About ------------------------------------------------------
+        LinearLayout aboutCard = card(0.92f);
+        TextView aboutTitle = new TextView(this);
+        aboutTitle.setText("ABOUT XMISUS");
+        aboutTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        aboutTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        aboutTitle.setTextColor(Color.parseColor("#FF4444"));
+        aboutTitle.setPadding(dp(12), dp(12), dp(12), dp(4));
+        aboutCard.addView(aboutTitle);
 
-        // ---- Permissions ----------------------------------------------
-        root.addView(button("1. Overlay permission",
-                () -> PermissionsHelper.requestOverlay(this)));
-        root.addView(button("2. Accessibility (auto retri/aim)",
-                () -> PermissionsHelper.requestAccessibility(this)));
-        root.addView(button("Open parallel-app permissions",
-                () -> PermissionsHelper.openContainerPermissions(this)));
+        TextView about = new TextView(this);
+        about.setText(R.string.about_xmisus);
+        about.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        about.setTextColor(Color.parseColor("#B8B8CC"));
+        about.setLineSpacing(0f, 1.25f);
+        about.setPadding(dp(12), 0, dp(12), dp(14));
+        aboutCard.addView(about);
+        root.addView(aboutCard);
 
-        // ---- Launch ---------------------------------------------------
-        root.addView(button("LAUNCH CHEAT", this::launchCheat));
-        root.addView(button("Open MLBB (parallel)", this::openMlbb));
-
-        // ---- Ads ------------------------------------------------------
-        banner = new AdView(this);
-        banner.setAdUnitId(BANNER_UNIT_ID);
-        banner.setAdSize(AdSize.BANNER);
-        LinearLayout.LayoutParams adLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        adLp.topMargin = dp(16);
-        adLp.gravity = Gravity.CENTER_HORIZONTAL;
-        banner.setLayoutParams(adLp);
-        root.addView(banner);
-
-        root.addView(button("Watch ad → 1h premium", this::showRewardedAd));
+        TextView version = new TextView(this);
+        try {
+            version.setText("v" + getPackageManager()
+                    .getPackageInfo(getPackageName(), 0).versionName);
+        } catch (PackageManager.NameNotFoundException e) {
+            version.setText("v1.2.0");
+        }
+        version.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        version.setTextColor(Color.parseColor("#5A5A70"));
+        version.setPadding(0, dp(20), 0, 0);
+        root.addView(version);
 
         scroll.addView(root);
         return root;
     }
 
-    private Button button(String label, Runnable action) {
+    private LinearLayout card(float weight) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(rounded("#1E1E2E", 16));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(6);
+        lp.bottomMargin = dp(6);
+        card.setLayoutParams(lp);
+        return card;
+    }
+
+    private Button button(String label, boolean big) {
         Button b = new Button(this);
         b.setText(label);
-        b.setAllCaps(false);
-        b.setOnClickListener(v -> action.run());
+        b.setAllCaps(true);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, big ? 16 : 15);
+        b.setTypeface(Typeface.DEFAULT_BOLD);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dp(8);
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(big ? 52 : 48));
+        lp.topMargin = dp(10);
         b.setLayoutParams(lp);
         return b;
+    }
+
+    private GradientDrawable rounded(String colorHex, int radiusDp) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(Color.parseColor(colorHex));
+        g.setCornerRadius(dp(radiusDp));
+        return g;
     }
 
     private int dp(int v) {
@@ -143,144 +176,79 @@ public class MainActivity extends Activity {
     }
 
     // ------------------------------------------------------------------
-    // Key redemption
+    // Stack control
     // ------------------------------------------------------------------
 
-    private void redeemKey() {
-        String raw = keyInput.getText().toString().trim();
-        if (!KeyManager.looksValid(raw)) {
-            Toast.makeText(this, "Key format invalid", Toast.LENGTH_LONG).show();
-            return;
-        }
-        String key = KeyManager.normalize(raw);
-        new Thread(() -> {
-            Crypto crypto = new Crypto(ServerClient.deviceId(this).getBytes());
-            ServerClient client = new ServerClient(this, crypto);
-            try {
-                ServerClient.KeyResult result = client.validateKey(key);
-                runOnUiThread(() -> handleKeyResult(result));
-            } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(this,
-                        "Network error: " + e.getMessage(), Toast.LENGTH_LONG).show());
-            }
-        }).start();
-    }
-
-    private void handleKeyResult(ServerClient.KeyResult result) {
-        Toast.makeText(this, result.message, Toast.LENGTH_LONG).show();
-        if (result.ok) {
-            KeyManager.storeGrant(this, result.tier, result.expiryTs);
-        }
-        refreshStatus();
-    }
-
-    // ------------------------------------------------------------------
-    // Ads
-    // ------------------------------------------------------------------
-
-    private void initAds() {
-        MobileAds.initialize(this, initializationStatus -> {
-            AdRequest request = new AdRequest.Builder().build();
-            banner.loadAd(request);
-            loadRewarded();
-        });
-    }
-
-    private void loadRewarded() {
-        RewardedAd.load(this, REWARDED_UNIT_ID, new AdRequest.Builder().build(),
-                new RewardedAdLoadCallback() {
-                    @Override
-                    public void onAdLoaded(RewardedAd ad) {
-                        rewardedAd = ad;
-                    }
-                });
-    }
-
-    private void showRewardedAd() {
-        if (rewardedAd == null) {
-            Toast.makeText(this, "Ad not ready yet", Toast.LENGTH_SHORT).show();
-            loadRewarded();
-            return;
-        }
-        rewardedAd.show(this, rewardItem -> {
-            PremiumManager.grantTemporaryPremium(this, AD_PREMIUM_MS);
-            runOnUiThread(() -> {
-                Toast.makeText(this, "+1h premium unlocked", Toast.LENGTH_LONG).show();
-                refreshStatus();
-            });
-        });
-        rewardedAd = null;
-    }
-
-    // ------------------------------------------------------------------
-    // Launch
-    // ------------------------------------------------------------------
-
-    private void launchCheat() {
+    private void startStack() {
         if (!PermissionsHelper.hasOverlay(this)) {
             Toast.makeText(this, "Grant overlay permission first", Toast.LENGTH_LONG).show();
             PermissionsHelper.requestOverlay(this);
             return;
         }
         if (!PermissionsHelper.isAccessibilityEnabled(this)) {
-            Toast.makeText(this, "Enable accessibility service first", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Enable Xmisus accessibility service", Toast.LENGTH_LONG).show();
             PermissionsHelper.requestAccessibility(this);
             return;
         }
         startService(new Intent(this, ScriptService.class));
         startService(new Intent(this, OverlayService.class));
-        Toast.makeText(this,
-                "Cheat stack active. Run mlbb_cheat.lua in GameGuardian (inside the parallel app).",
-                Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Xmisus stack active", Toast.LENGTH_SHORT).show();
     }
 
-    private void openMlbb() {
-        String[] pkgs = {
-            "com.mobilelegends.mlbb.booyah",
-            "com.moonton.mlbb",
-            "com.mobilelegends.mlbb",
-            "com.mobile.legends"
-        };
-        for (String pkg : pkgs) {
-            Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
-            if (i != null) {
-                startActivity(i);
-                return;
+    private void stopStack() {
+        stopService(new Intent(this, ScriptService.class));
+        stopService(new Intent(this, OverlayService.class));
+        Toast.makeText(this, "Xmisus stack stopped", Toast.LENGTH_SHORT).show();
+        refreshState();
+    }
+
+    private boolean stackRunning() {
+        ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        if (am == null) return false;
+        for (ActivityManager.RunningServiceInfo s : am.getRunningServices(256)) {
+            if (s.service.getClassName().equals(ScriptService.class.getName())
+                    || s.service.getClassName().equals(OverlayService.class.getName())) {
+                return true;
             }
         }
-        Toast.makeText(this, "MLBB not found — open it inside your parallel app",
-                Toast.LENGTH_LONG).show();
+        return false;
     }
 
     // ------------------------------------------------------------------
-    // Status + assets
+    // Status
     // ------------------------------------------------------------------
 
     @Override
     protected void onResume() {
         super.onResume();
-        refreshStatus();
+        refreshState();
     }
 
-    private void refreshStatus() {
+    private void refreshState() {
+        boolean running = stackRunning();
+        startButton.setEnabled(!running);
+        stopButton.setEnabled(running);
+
         StringBuilder sb = new StringBuilder();
-        sb.append("Overlay: ").append(PermissionsHelper.hasOverlay(this) ? "OK" : "MISSING").append('\n');
-        sb.append("Accessibility: ").append(PermissionsHelper.isAccessibilityEnabled(this) ? "OK" : "MISSING").append('\n');
-        sb.append("In parallel container: ").append(PermissionsHelper.runningInContainer(this) ? "YES" : "no").append('\n');
-        sb.append("MLBB fingerprint: ").append(OffsetRepository.fingerprint(this)).append('\n');
-        sb.append("Offset DB: ").append(new OffsetRepository(this).getActive().version);
+        sb.append("Overlay permission: ")
+                .append(PermissionsHelper.hasOverlay(this) ? "OK" : "MISSING").append('\n');
+        sb.append("Accessibility: ")
+                .append(PermissionsHelper.isAccessibilityEnabled(this) ? "OK" : "MISSING").append('\n');
+        sb.append("Service: ").append(running ? "RUNNING" : "stopped");
         status.setText(sb.toString());
 
         if (PremiumManager.isPremiumActive(this)) {
-            long ms = PremiumManager.temporaryPremiumMs(this);
-            String temp = ms > 0
-                    ? " (+ ad premium " + (ms / 60000) + "m)"
-                    : "";
-            premiumStatus.setText("Tier: PREMIUM" + temp);
+            tierLine.setText("Tier: PREMIUM");
+            tierLine.setTextColor(Color.parseColor("#3DDC84"));
         } else {
-            premiumStatus.setText("Tier: FREE — redeem a key or watch an ad");
+            tierLine.setText("Tier: FREE");
+            tierLine.setTextColor(Color.parseColor("#8A8AA0"));
         }
     }
+
+    // ------------------------------------------------------------------
+    // Assets (Lua bridge script + offset DB, no UI)
+    // ------------------------------------------------------------------
 
     private void copyAssets() {
         copyAssetToGameGuardian();
@@ -289,15 +257,16 @@ public class MainActivity extends Activity {
 
     private void copyAssetToGameGuardian() {
         try {
-            File dir = new File(Environment.getExternalStorageDirectory(),
+            java.io.File dir = new java.io.File(
+                    android.os.Environment.getExternalStorageDirectory(),
                     "GameGuardian/scripts");
             if (!dir.exists() && !dir.mkdirs()) {
                 fallbackCopy();
                 return;
             }
-            File target = new File(dir, "mlbb_cheat.lua");
-            try (InputStream in = getAssets().open("scripts/mlbb_cheat.lua");
-                 OutputStream out = new FileOutputStream(target)) {
+            java.io.File target = new java.io.File(dir, "mlbb_cheat.lua");
+            try (java.io.InputStream in = getAssets().open("scripts/mlbb_cheat.lua");
+                 java.io.OutputStream out = new java.io.FileOutputStream(target)) {
                 byte[] buf = new byte[8192];
                 int n;
                 while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
@@ -309,27 +278,24 @@ public class MainActivity extends Activity {
 
     private void fallbackCopy() {
         try {
-            File dir = new File(getExternalFilesDir(null), "gg");
+            java.io.File dir = new java.io.File(getExternalFilesDir(null), "gg");
             if (!dir.exists() && !dir.mkdirs()) return;
-            File target = new File(dir, "mlbb_cheat.lua");
-            try (InputStream in = getAssets().open("scripts/mlbb_cheat.lua");
-                 OutputStream out = new FileOutputStream(target)) {
+            java.io.File target = new java.io.File(dir, "mlbb_cheat.lua");
+            try (java.io.InputStream in = getAssets().open("scripts/mlbb_cheat.lua");
+                 java.io.OutputStream out = new java.io.FileOutputStream(target)) {
                 byte[] buf = new byte[8192];
                 int n;
                 while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
             }
-            Toast.makeText(this,
-                    "Script copied to app files (Android 10+). Move it to GameGuardian/scripts.",
-                    Toast.LENGTH_LONG).show();
         } catch (Exception ignored) {
         }
     }
 
     private void copyAssetToFiles(String asset) {
         try {
-            File target = new File(getFilesDir(), asset);
-            try (InputStream in = getAssets().open(asset);
-                 OutputStream out = new FileOutputStream(target)) {
+            java.io.File target = new java.io.File(getFilesDir(), asset);
+            try (java.io.InputStream in = getAssets().open(asset);
+                 java.io.OutputStream out = new java.io.FileOutputStream(target)) {
                 byte[] buf = new byte[8192];
                 int n;
                 while ((n = in.read(buf)) != -1) out.write(buf, 0, n);

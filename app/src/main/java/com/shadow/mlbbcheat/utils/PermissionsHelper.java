@@ -111,7 +111,7 @@ public final class PermissionsHelper {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(launch);
             Toast.makeText(context,
-                    "In " + host + ": long-press MLBB Cheat → permissions → overlay/accessibility",
+                    "In " + host + ": long-press Xmisus → permissions → overlay/accessibility",
                     Toast.LENGTH_LONG).show();
         } else {
             Toast.makeText(context, "Open your parallel app manually", Toast.LENGTH_LONG).show();

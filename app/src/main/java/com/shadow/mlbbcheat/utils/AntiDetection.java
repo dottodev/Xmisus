@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Debug;
 import android.os.Environment;
 import android.os.SystemClock;
+import android.util.Log;
 
 import com.shadow.mlbbcheat.memory.MemoryScanner;
 
@@ -35,6 +36,7 @@ import java.util.Random;
  */
 public final class AntiDetection {
 
+    private static final String TAG = "XmisusWatchdog";
     private static final Random RANDOM = new Random();
 
     // ------------------------------------------------------------------
@@ -258,7 +260,13 @@ public final class AntiDetection {
 
     /**
      * Start a watchdog: every 5s verify the app is not being debugged and
-     * not hosting a hooking runtime; on violation, self-destruct.
+     * not hosting a hooking runtime.
+     *
+     * IMPORTANT: the watchdog is OBSERVATION-ONLY. It never exits the app.
+     * Timing benchmarks and map scans produce false positives on loaded
+     * devices and in the exact environments this app runs in (GameGuardian
+     * inside a container), so a "self-destruct" here would kill the app in
+     * normal use. Detection is logged instead.
      */
     public static Thread startWatchdog(Context context) {
         Thread t = new Thread(() -> {
@@ -266,11 +274,11 @@ public final class AntiDetection {
                 try {
                     Thread.sleep(5000);
                     if (isBeingDebugged() || timingAnomaly()) {
-                        selfDestruct(context);
+                        Log.w(TAG, "watchdog: debugger/instrumentation signal (ignored)");
                     }
                     List<String> maps = suspiciousMapsInProcess();
                     if (maps != null && !maps.isEmpty()) {
-                        selfDestruct(context);
+                        Log.w(TAG, "watchdog: suspicious maps seen (ignored): " + maps.size());
                     }
                 } catch (InterruptedException e) {
                     return;

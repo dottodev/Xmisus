@@ -20,7 +20,7 @@
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
-        android:theme="@style/Theme.MLBBCheat"
+        android:theme="@style/Theme.Xmisus"
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
         tools:ignore="MissingApplicationIcon">
